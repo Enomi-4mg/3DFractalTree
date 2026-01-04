@@ -1,0 +1,7 @@
+/bin/*
+!/bin/data/
+/obj/
+/.vs/
+*.sln
+*.vcxproj
+*.user
