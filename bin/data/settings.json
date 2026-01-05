@@ -1,6 +1,6 @@
 {
     "tree": {
-        "max_depth": 8,
+        "max_depth": 6,
         "depth_exp_base": 8.0,
         "depth_exp_power": 1.6,
         "length_visual_scale": 1.5,

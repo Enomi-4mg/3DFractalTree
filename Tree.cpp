@@ -3,7 +3,7 @@ void Tree::setup(const ofJson& config) {
     seed = ofRandom(99999);
     auto treeConf = config.contains("tree") ? config["tree"] : ofJson::object();
     // JSONから定数を取得
-    maxDepthConfig = treeConf.value("max_depth", 8);
+    maxDepthConfig = treeConf.value("max_depth", 6);
     depthExpBase = treeConf.value("depth_exp_base", 30.0f);
     depthExpPower = treeConf.value("depth_exp_power", 1.6f);
     lengthVisualScale = treeConf.value("length_visual_scale", 1.5f);
@@ -33,24 +33,22 @@ void Tree::update(int growthLevel, int chaosResist, int bloomLevel) {
     bThick = ofLerp(bThick, tThick, 0.1f);
     bMutation = ofLerp(bMutation, tMutation, 0.1f);
     
-    if (bMutation > maxMutationReached) {
-        maxMutationReached = bMutation;
-    }
+    if (bMutation > maxMutationReached) maxMutationReached = bMutation;
 
-    // 累進経験値テーブルによる深さ計算
-    int newDepth = 0;
-    while (newDepth < maxDepthConfig && bThick > getExpForDepth(newDepth + 1)) {
-        newDepth++;
+    // 深さ計算
+    if (depthLevel < maxDepthConfig && depthExp >= getExpForDepth(depthLevel + 1)) {
+        depthLevel++;
+        bNeedsUpdate = true;
     }
-
+    currentDepth = depthLevel;
     // 数値が動いている、または深さが変わった時にメッシュ更新
-    if (newDepth != currentDepth || abs(bLen - prevLen) > 0.01f || abs(bThick - prevThick) > 0.01f) {
-        currentDepth = newDepth;
+    if (abs(bLen - prevLen) > 0.01f || abs(bThick - prevThick) > 0.01f || maxMutationReached > 0.95f) {
+        currentDepth = depthLevel;
         bNeedsUpdate = true;
     }
 
     // アニメーション（色彩やノイズ）のために毎フレームフラグを立てることも検討
-    if (maxMutationReached > 0.7f) bNeedsUpdate = true;
+    if (maxMutationReached > 0.95f) bNeedsUpdate = true;
 
     if (bNeedsUpdate) {
         vboMesh.clear();
@@ -66,18 +64,24 @@ void Tree::draw() {
 }
 
 void Tree::water(float buff, int growthLevel, float increment) {
-    float bonus = 1.0f + (growthLevel * 0.2f);
-    tLen += increment * buff * bonus;
-    tMutation = max(0.0f, tMutation - 0.05f); // 水・肥料で減少
+    depthExp += 5.0f * buff;                  // Depth +
+    tLen += increment * 2.0f * buff;          // 長さ ++
+    tThick = max(2.0f, tThick - 3.0f);        // 太さ - (最小値2)
+    tMutation = max(0.0f, tMutation - 0.1f);  // カオス --
 }
 
 void Tree::fertilize(float buff, float increment) {
-    tThick += increment * buff;
-    tMutation = max(0.0f, tMutation - 0.05f); // 水・肥料で減少
+    depthExp += 5.0f * buff;                  // Depth +
+    tLen = max(10.0f, tLen - 5.0f);           // 長さ - (最小値10)
+    tThick += increment * 2.0f * buff;        // 太さ ++
+    tMutation = max(0.0f, tMutation - 0.05f); // カオス -
 }
 
 void Tree::kotodama(float buff) {
-    tMutation = ofClamp(tMutation + 0.1f * buff, 0.0f, 1.0f); // 言霊で上昇
+    depthExp += 5.0f * buff;                 // Depth ++
+    tLen += 10.0f * buff;                     // 長さ +
+    tThick = max(2.0f, tThick - 5.0f);        // 太さ -
+    tMutation = ofClamp(tMutation + 0.2f * buff, 0.0f, 1.0f); // カオス +
 }
 
 glm::mat4 Tree::getNextBranchMatrix(glm::mat4 tipMat, int index, int total, float angleBase) {
@@ -105,7 +109,7 @@ void Tree::buildBranchMesh(float length, float thickness, int depth, glm::mat4 m
 
     if (isBloomed) {
         if (depth == 0) addFlowerToMesh(thickness, tipMat);
-        else if (depth <= 2) addLeafToMesh(thickness, tipMat);
+        else if (depth <= 1) addLeafToMesh(thickness, tipMat);
     }
     else if (depth <= 1) {
         addLeafToMesh(thickness, tipMat);
@@ -123,10 +127,12 @@ void Tree::buildBranchMesh(float length, float thickness, int depth, glm::mat4 m
 
 void Tree::addStemToMesh(float r1, float r2, float h, glm::mat4 mat, int chaosResist, int depth) {
     int segments = (depth <= 4) ? 3 : 5;
+
     float timeShift = ofGetElapsedTimef() * 20.0f;
     float hueBase = ofMap(bMutation, 0, 1, trunkHueStart, trunkHueEnd);
     float finalHue = fmod(hueBase + timeShift + (depth * 10), 255.0f);
     ofColor col = ofColor::fromHsb(finalHue, 160, 180 + (depth * 10));
+    
     float collapseThreshold = 0.9f + (chaosResist * 0.02f);
     // 法線変換用の行列
     glm::mat3 normalMatrix = glm::inverseTranspose(glm::mat3(mat));
@@ -134,32 +140,24 @@ void Tree::addStemToMesh(float r1, float r2, float h, glm::mat4 mat, int chaosRe
     for (int i = 0; i < segments; i++) {
         float a1 = i * TWO_PI / segments;
         float a2 = (i + 1) * TWO_PI / segments;
+        glm::vec3 n1(cos(a1), 0, sin(a1)), n2(cos(a2), 0, sin(a2));
+        glm::vec4 p1(n1.x * r1, 0, n1.z * r1, 1), p2(n2.x * r1, 0, n2.z * r1, 1);
+        glm::vec4 p3(n1.x * r2, h, n1.z * r2, 1), p4(n2.x * r2, h, n2.z * r2, 1);
 
-        // 側面方向のベクトル（法線の基礎）
-        glm::vec3 n1(cos(a1), 0, sin(a1));
-        glm::vec3 n2(cos(a2), 0, sin(a2));
-
-        glm::vec4 p1(n1.x * r1, 0, n1.z * r1, 1);
-        glm::vec4 p2(n2.x * r1, 0, n2.z * r1, 1);
-        glm::vec4 p3(n1.x * r2, h, n1.z * r2, 1);
-        glm::vec4 p4(n2.x * r2, h, n2.z * r2, 1);
-
-        // カオス度による形状崩壊 (ofNoise)
-        if (maxMutationReached > collapseThreshold) {
-            float time = ofGetElapsedTimef();
-            float nStr = ofMap(maxMutationReached, 0.5, 1.0, 0, 150.0f, true);
+        // 変異度に基づいた形状のノイズアニメーション
+        if (maxMutationReached > 0.5f) {
+            float nStr = ofMap(maxMutationReached, 0.5, 1.0, 0, 120.0f, true);
             auto applyNoise = [&](glm::vec4& p) {
-                p.x += ofSignedNoise(p.x * 0.1, p.y * 0.1, time) * nStr;
-                p.z += ofSignedNoise(p.z * 0.1, p.y * 0.1, time + 10) * nStr;
+                p.x += ofSignedNoise(p.x * 0.1, p.y * 0.1, ofGetElapsedTimef()) * nStr;
+                p.z += ofSignedNoise(p.z * 0.1, p.y * 0.1, ofGetElapsedTimef() + 10) * nStr;
                 };
             applyNoise(p3); applyNoise(p4);
         }
 
-        // 三角形1
+        // VBO登録 (三角形1, 2)
         vboMesh.addVertex(glm::vec3(mat * p1)); vboMesh.addNormal(normalMatrix * n1); vboMesh.addColor(col);
         vboMesh.addVertex(glm::vec3(mat * p2)); vboMesh.addNormal(normalMatrix * n2); vboMesh.addColor(col);
         vboMesh.addVertex(glm::vec3(mat * p3)); vboMesh.addNormal(normalMatrix * n1); vboMesh.addColor(col);
-        // 三角形2
         vboMesh.addVertex(glm::vec3(mat * p2)); vboMesh.addNormal(normalMatrix * n2); vboMesh.addColor(col);
         vboMesh.addVertex(glm::vec3(mat * p4)); vboMesh.addNormal(normalMatrix * n2); vboMesh.addColor(col);
         vboMesh.addVertex(glm::vec3(mat * p3)); vboMesh.addNormal(normalMatrix * n1); vboMesh.addColor(col);
@@ -172,10 +170,15 @@ float Tree::getExpForDepth(int d) {
 }
 
 float Tree::getDepthProgress() {
-    float currentThreshold = getExpForDepth(currentDepth);
-    float nextThreshold = getExpForDepth(currentDepth + 1);
-    if (nextThreshold <= currentThreshold) return 1.0f;
-    return ofClamp((bThick - currentThreshold) / (nextThreshold - currentThreshold), 0.0f, 1.0f);
+    // 現在のレベルと次のレベルに必要な経験値を取得
+    float curThreshold = getExpForDepth(depthLevel);
+    float nxtThreshold = getExpForDepth(depthLevel + 1);
+
+    // 0除算を防ぐ
+    if (nxtThreshold <= curThreshold) return 1.0f;
+
+    // 現在のレベル内での進捗率を 0.0 ~ 1.0 で返す
+    return ofClamp((depthExp - curThreshold) / (nxtThreshold - curThreshold), 0.0f, 1.0f);
 }
 
 void Tree::addLeafToMesh(float thickness, glm::mat4 mat) {
@@ -237,7 +240,8 @@ void Tree::reset() {
     // 育成状態の初期化
     dayCount = 1;
     maxMutationReached = 0;
-    lastMutation = 0;
+    depthExp = 0;
+    depthLevel = 0;
     // パラメータを初期値へ
     bLen = 0; tLen = 10;
     bThick = 0; tThick = 2;
@@ -245,5 +249,6 @@ void Tree::reset() {
 
     // 木の形状シードを再生成
     seed = ofRandom(99999);
+    vboMesh.clear();
     bNeedsUpdate = true;
 }

@@ -6,6 +6,35 @@
 #include "..\Ground.h"
 #include "../Particle.h"
 
+
+enum ParticleType { P_WATER, P_FERTILIZER, P_KOTODAMA, P_RAIN_SPLASH, P_BLOOM };
+
+struct Particle2D {
+	glm::vec2 pos, vel;
+	ofColor color;
+	float size, life = 1.0, decay;
+	ParticleType type;
+
+	void update() {
+		pos += vel;
+		if (type == P_FERTILIZER) pos.x += sin(ofGetElapsedTimef() * 5.0) * 2.0;
+		life -= decay;
+	}
+
+	void draw() {
+		ofSetColor(color, life * 255);
+		if (type == P_RAIN_SPLASH) {
+			ofSetLineWidth(2);
+			ofNoFill();
+			ofDrawEllipse(pos, size * (1.0 - life) * 2.0, size * (1.0 - life)); // 広がる波紋
+			ofFill();
+		}
+		else {
+			ofDrawCircle(pos, size * (life + 0.2)); // 徐々に小さくなる円
+		}
+	}
+};
+
 class ofApp : public ofBaseApp{
 	public:
 		// --- 標準イベント ---
@@ -27,14 +56,21 @@ class ofApp : public ofBaseApp{
 		void gotMessage(ofMessage msg);
 
 	private:
-		// --- 内部処理の細分化 ---
-		void updateCamera();          // JSONベースの自動追従カメラ
-		void setupLighting();         // 天候に応じたライティング
-		void drawHUD();               // プログレスバーを含むUI描画
-		void drawParamBar(string label, float x, float y, float w, float ratio, ofColor col); // パラメータバー描画
-		void drawDebugInfo();        // デバッグ情報描画
-		void processCommand(int key); // 育成コマンド処理
-		void spawnBloomParticles();   // エフェクト生成
+		// UIコンポーネントの分割
+		void drawHUD();
+		void drawStatusPanel();
+		void drawControlPanel();
+		void drawViewModeOverlay();
+		void drawDebugOverlay();
+		ofTrueTypeFont mainFont;
+		float getUIScale();
+		void drawDualParamBar(string label, float x, float y, float w, float currentRatio, float maxRatio, ofColor col);
+
+		void updateCamera();
+		void processCommand(int key);
+		void setupLighting();
+		void spawnBloomParticles();
+		void spawn2DEffect(ParticleType type);
 
 		// --- スキル処理 ---
 		void upgradeGrowth();
@@ -44,11 +80,10 @@ class ofApp : public ofBaseApp{
 		// --- システム変数と設定 ---
 		ofJson config;
 		int skillPoints = 3;
-		bool bGameEnded = false;
-		bool bViewMode = false;
+		bool bGameEnded = false, bViewMode = false, bShowDebug = false;
 		string finalTitle = "";
 		float camAutoRotation = 0;
-		bool bShowDebug = false;
+		float visualDepthProgress = 0;
 
 		// --- オブジェクト群 ---
 		Tree myTree;
@@ -57,11 +92,10 @@ class ofApp : public ofBaseApp{
 		ofEasyCam cam;
 		ofLight light;
 		vector<Particle> particles;
+		vector<Particle2D> particles2D;
 
 		// --- GUI ---
 		ofxPanel gui;
-		ofParameter<int> growthLevel;
-		ofParameter<int> chaosResistLevel;
-		ofParameter<int> bloomCatalystLevel;
+		ofParameter<int> growthLevel, chaosResistLevel, bloomCatalystLevel;
 		ofxButton btnGrowth, btnResist, btnCatalyst;
 };
