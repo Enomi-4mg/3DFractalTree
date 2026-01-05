@@ -53,14 +53,15 @@ public:
         if (state == RAINY) return "RAINY";
         return "MOONLIGHT";
     }
+    // ofApp ‚©‚ç“n‚³‚ê‚½ config ‚ğg‚Á‚Ä”wŒiF‚ğŒˆ’è
+    ofColor getBgFromConfig(const ofJson& config) {
+        string key = "";
+        if (state == SUNNY) key = "sunny_bg";
+        else if (state == RAINY) key = "rainy_bg";
+        else key = "moonlight_bg";
 
-    ofColor getBgColor() {
-        switch (state) {
-        case SUNNY:     return ofColor(135, 206, 235);
-        case RAINY:     return ofColor(80, 85, 95); // ­‚µˆÃ‚ß‚É’²®
-        case MOONLIGHT: return ofColor(15, 20, 40);
-        default:        return ofColor(20);
-        }
+        auto c = config["weather"][key];
+        return ofColor(c[0], c[1], c[2]);
     }
 
     float getGrowthBuff() { return 1.5f; }

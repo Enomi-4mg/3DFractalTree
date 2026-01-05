@@ -1,0 +1,36 @@
+{
+    "tree": {
+        "max_depth": 8,
+        "depth_exp_base": 8.0,
+        "depth_exp_power": 1.6,
+        "length_visual_scale": 1.5,
+        "thickness_visual_scale": 0.8,
+        "branch_length_ratio": 0.75,
+        "branch_thick_ratio": 0.7,
+        "base_angle": 25.0,
+        "mutation_angle_max": 45.0,
+        "colors": {
+            "trunk_hue_start": 20,
+            "trunk_hue_end": 160,
+            "leaf": [60, 150, 60, 200],
+            "flower": [255, 180, 200]
+        }
+    },
+    "camera": {
+        "rotation_speed": 0.2,
+        "lerp_speed": 0.05,
+        "min_distance": 600.0,
+        "height_factor": 3.5
+    },
+    "weather": {
+        "sunny_bg": [210, 230, 250],
+        "rainy_bg": [100, 110, 125],
+        "moonlight_bg": [20, 25, 45]
+    },
+    "game": {
+        "max_days": 50,
+        "skill_interval": 5,
+        "water_increment": 15.0,
+        "fertilize_increment": 8.0
+    }
+}
