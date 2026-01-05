@@ -2,6 +2,8 @@
 
 #include "ofMain.h"
 #include "..\Tree.h"
+#include "..\Weather.h"
+#include "..\Ground.h"
 
 class ofApp : public ofBaseApp{
 
@@ -21,6 +23,9 @@ class ofApp : public ofBaseApp{
 		void windowResized(int w, int h);
 		void dragEvent(ofDragInfo dragInfo);
 		void gotMessage(ofMessage msg);
-		ofEasyCam cam;
+		bool bViewMode = false;
 		Tree myTree;
+		Weather weather;
+		Ground ground;
+		ofEasyCam cam;
 };

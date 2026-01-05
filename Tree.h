@@ -4,17 +4,29 @@
 class Tree {
 public:
     void setup();
-    void update(float weatherBonus);
+    void update();
     void draw();
 
-    void feed(float amount);
-    void mutate(float amount);
+    void water(float buff);      // 長さを伸ばし、カオス度を下げる
+    void fertilize(float buff);  // 太さを増し、カオス度を下げる
+    void kotodama(float buff);   // カオス度を上げる
+
+    // dayCountへのアクセサ
+    int getDayCount() { return dayCount; }
+    void incrementDay() { dayCount++; }
+    float getLen() { return bLen; }
 
 private:
-    float energy = 0;
-    float mutation = 0;
-    int currentDepth = 0;
-    unsigned int seed = 0;
+    // 現在のパラメータ（描画用と目標値）
+    float bLen = 0, bThick = 0, bMutation = 0;
+    float tLen = 10, tThick = 2, tMutation = 0;
 
-    void drawBranch(float length, int depth);
-}; // ← セミコロンを忘れずに
+    int currentDepth = 0;
+    int dayCount = 1;
+    unsigned int seed;
+
+    void drawBranch(float length, float thickness, int depth);
+    void drawStem(float r1, float r2, float h);
+    void drawLeaf();
+    void drawFlower(float thickness);
+};
