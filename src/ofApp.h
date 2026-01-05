@@ -24,8 +24,10 @@ class ofApp : public ofBaseApp{
 		void dragEvent(ofDragInfo dragInfo);
 		void gotMessage(ofMessage msg);
 		bool bViewMode = false;
+		float camAutoRotation = 0;
 		Tree myTree;
 		Weather weather;
 		Ground ground;
 		ofEasyCam cam;
+		ofLight light;
 };

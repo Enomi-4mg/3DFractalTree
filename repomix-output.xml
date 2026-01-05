@@ -48,6 +48,7 @@ config.make
 Ground.h
 icon.rc
 ofApp.cpp
+Particle.h
 src/main.cpp
 src/ofApp.cpp
 src/ofApp.h
@@ -60,44 +61,31 @@ Weather.h
 <files>
 This section contains the contents of the repository's files.
 
-<file path="Weather.h">
-#pragma once
+<file path="Particle.h">
 #pragma once
 #include "ofMain.h"
 
-enum WeatherState { SUNNY, RAINY, MOONLIGHT };
-
-class Weather {
+class Particle {
 public:
-    WeatherState state = SUNNY;
+    glm::vec3 pos, vel;
+    ofColor color;
+    bool isDead = false;
 
-    // 次の天候へ切り替え
-    void toggle() {
-        state = static_cast<WeatherState>((state + 1) % 3);
+    void setup(glm::vec3 p, glm::vec3 v, ofColor c) {
+        pos = p;
+        vel = v;
+        color = c;
+        isDead = false;
     }
 
-    // 天候に応じた背景色を返す
-    ofColor getBgColor() {
-        switch (state) {
-        case SUNNY:     return ofColor(135, 206, 235); // スカイブルー
-        case RAINY:     return ofColor(100, 110, 120); // グレー
-        case MOONLIGHT: return ofColor(15, 20, 40);    // ミッドナイトブルー
-        default:        return ofColor(20);
-        }
+    void update() {
+        pos += vel;
+        if (pos.y < 0) isDead = true;
     }
 
-    // 成長倍率
-    float getGrowthBuff() { return 1.5f; }
-
-    // 日替わりで天候をランダムに変更する
-    void randomize() {
-        state = static_cast<WeatherState>((int)ofRandom(0, 3));
-    }
-
-    string getName() {
-        if (state == SUNNY) return "SUNNY";
-        if (state == RAINY) return "RAINY";
-        return "MOONLIGHT";
+    void draw() {
+        ofSetColor(color);
+        ofDrawLine(pos, pos - vel * 0.5f);
     }
 };
 </file>
@@ -160,6 +148,123 @@ public:
 *.sln
 *.vcxproj
 *.user
+</file>
+
+<file path="addons.make">
+ofxGui
+</file>
+
+<file path="bin/data/.gitkeep">
+
+</file>
+
+<file path="config.make">
+
+</file>
+
+<file path="icon.rc">
+// Icon Resource Definition
+#define MAIN_ICON                       102
+
+#if defined(_DEBUG)
+MAIN_ICON               ICON                    "icon_debug.ico"
+#else
+MAIN_ICON               ICON                    "icon.ico"
+#endif
+</file>
+
+<file path="ofApp.cpp">
+
+</file>
+
+<file path="src/main.cpp">
+#include "ofMain.h"
+#include "ofApp.h"
+
+//========================================================================
+int main( ){
+
+	//Use ofGLFWWindowSettings for more options like multi-monitor fullscreen
+	ofGLWindowSettings settings;
+	settings.setSize(1024, 768);
+	settings.windowMode = OF_WINDOW; //can also be OF_FULLSCREEN
+
+	auto window = ofCreateWindow(settings);
+
+	ofRunApp(window, std::make_shared<ofApp>());
+	ofRunMainLoop();
+
+}
+</file>
+
+<file path="Weather.h">
+#pragma once
+#include "ofMain.h"
+
+enum WeatherState { SUNNY, RAINY, MOONLIGHT };
+
+class Weather {
+    // 2DĚJüđÇˇé\˘Ě
+    struct RainLine {
+        float x, y, speed, length;
+    };
+    vector<RainLine> rainLines;
+
+public:
+    WeatherState state = SUNNY;
+
+    void setup() {
+        rainLines.clear();
+        // ćĘSĚÉJĚüđúzu
+        for (int i = 0; i < 200; i++) {
+            rainLines.push_back({ ofRandomWidth(), ofRandomHeight(), ofRandom(12, 25), ofRandom(15, 40) });
+        }
+    }
+
+    void update() {
+        if (state == RAINY) {
+            for (auto& r : rainLines) {
+                r.y += r.speed;
+                if (r.y > ofGetHeight()) {
+                    r.y = -r.length;
+                    r.x = ofRandomWidth();
+                }
+            }
+        }
+    }
+
+    // JĚOi2DjĹ`ćˇé\bh
+    void draw2D() {
+        if (state == RAINY) {
+            ofPushStyle();
+            ofSetLineWidth(1);
+            ofSetColor(170, 200, 255, 130); // Â­­ľ§žČF
+            for (auto& r : rainLines) {
+                ofDrawLine(r.x, r.y, r.x, r.y + r.length);
+            }
+            ofPopStyle();
+        }
+    }
+
+    void toggle() { state = static_cast<WeatherState>((state + 1) % 3); }
+    void randomize() { state = static_cast<WeatherState>((int)ofRandom(0, 3)); }
+    string getName() {
+        if (state == SUNNY) return "SUNNY";
+        if (state == RAINY) return "RAINY";
+        return "MOONLIGHT";
+    }
+
+    ofColor getBgColor() {
+        switch (state) {
+        case SUNNY:     return ofColor(135, 206, 235);
+        case RAINY:     return ofColor(80, 85, 95); // ­ľĂßÉ˛Ž
+        case MOONLIGHT: return ofColor(15, 20, 40);
+        default:        return ofColor(20);
+        }
+    }
+
+    float getGrowthBuff() { return 1.5f; }
+};
 </file>
 
 <file path="3DFractalTree.vcxproj.filters">
@@ -276,53 +381,6 @@ public:
 </Project>
 </file>
 
-<file path="addons.make">
-ofxGui
-</file>
-
-<file path="bin/data/.gitkeep">
-
-</file>
-
-<file path="config.make">
-
-</file>
-
-<file path="icon.rc">
-// Icon Resource Definition
-#define MAIN_ICON                       102
-
-#if defined(_DEBUG)
-MAIN_ICON               ICON                    "icon_debug.ico"
-#else
-MAIN_ICON               ICON                    "icon.ico"
-#endif
-</file>
-
-<file path="ofApp.cpp">
-
-</file>
-
-<file path="src/main.cpp">
-#include "ofMain.h"
-#include "ofApp.h"
-
-//========================================================================
-int main( ){
-
-	//Use ofGLFWWindowSettings for more options like multi-monitor fullscreen
-	ofGLWindowSettings settings;
-	settings.setSize(1024, 768);
-	settings.windowMode = OF_WINDOW; //can also be OF_FULLSCREEN
-
-	auto window = ofCreateWindow(settings);
-
-	ofRunApp(window, std::make_shared<ofApp>());
-	ofRunMainLoop();
-
-}
-</file>
-
 <file path="src/ofApp.cpp">
 #include "ofApp.h"
 
@@ -332,11 +390,16 @@ void ofApp::setup() {
     ofEnableDepthTest();
     ofEnableSmoothing();
     myTree.setup();
+    weather.setup();
     ground.setup();
+
+    ofEnableLighting();
+    light.setup();
     // カメラの初期位置設定
     cam.setGlobalPosition(ofVec3f(0, 250, 250));
     cam.lookAt(ofVec3f(0, 0, 0)); // 木の半分くらいの高さを見つめる
     cam.setDistance(600);
+    cam.setFarClip(20000);
     cam.setNearClip(0.1);
     cam.setTarget(ofVec3f(0, 0, 0));
 
@@ -347,52 +410,102 @@ void ofApp::setup() {
 //--------------------------------------------------------------
 void ofApp::update() {
     myTree.update();
+    weather.update();
 
     // 2. 木の成長に合わせてカメラを引くロジック
     // 木の推定全高（bLenの約4倍）を取得
     if (!bViewMode) {
+        // --- カメラの自動ズームと回転 ---
         float currentTreeHeight = myTree.getLen() * 3.5f;
-
-        // 適切な距離を計算（高さの約2.5倍程度）
         float targetDistance = max(600.0f, currentTreeHeight * 1.5f);
-
-        // Lerpで滑らかにズームアウト
         float lerpedDistance = ofLerp(cam.getDistance(), targetDistance, 0.05f);
         cam.setDistance(lerpedDistance);
 
-        // 注視点（Target）も木の中心（高さの半分）に合わせる
-        ofVec3f currentTarget = cam.getTarget().getPosition();
+        // 中心（高さの40%付近）を見つめる
         ofVec3f newTarget(0, currentTreeHeight * 0.4f, 0);
-        cam.setTarget(currentTarget.getInterpolated(newTarget, 0.05f));
+
+        ofVec3f currentTarget = cam.getTarget().getPosition();
+        ofVec3f lerpedTarget = currentTarget.getInterpolated(newTarget, 0.05f);
+        cam.setTarget(lerpedTarget);
+
+        // 毎フレーム少しずつ回転角を増やす
+        camAutoRotation += 0.2f;
+        // カメラの位置を円周上で計算して更新
+        float rad = ofDegToRad(camAutoRotation);
+        cam.setPosition(sin(rad) * lerpedDistance, newTarget.y, cos(rad) * lerpedDistance);
+        cam.lookAt(newTarget);
     }
 }
 
 //--------------------------------------------------------------
 void ofApp::draw() {
     ofBackground(weather.getBgColor());
+    // --- 1. 3D描画（ライト有効） ---
+    ofEnableLighting();
+
+    // 天候に応じたライトのパラメータ設定
+    if (weather.state == SUNNY) {
+        light.setDirectional();
+        light.setDiffuseColor(ofColor(255, 250, 230)); // 温かい太陽光
+        light.setOrientation(glm::vec3(-45, -45, 0));
+    }
+    else if (weather.state == MOONLIGHT) {
+        light.setPointLight();
+        light.setDiffuseColor(ofColor(120, 150, 255)); // 冷たい月光
+        light.setPosition(0, 500, 200);
+    }
+    else { // RAINY
+        light.setPointLight();
+        light.setDiffuseColor(ofColor(50, 60, 80)); // どんよりした暗い光
+        light.setPosition(0, 800, 0);
+    }
+
+    light.enable();
+
     cam.begin();
     ground.draw();
     myTree.draw();
     cam.end();
+    light.disable();
+    ofDisableLighting();
+    weather.draw2D();
 
     // HUD表示
     if (!bViewMode) {
         ofSetColor(255);
-        string hud = "Day: " + ofToString(myTree.getDayCount()) + "\n";
-        hud += "Weather: " + weather.getName() + "\n";
-        hud += "[1] Water [2] Fertilizer [3] Kotodama\n";
-        hud += "[V] View Mode: OFF";
+        string hud;
+        if (myTree.getDayCount() >= 50) {
+            hud = "--- GROWTH COMPLETED ---\n";
+            hud += "Final Height: " + ofToString(myTree.getLen(), 1) + "\n";
+            hud += "Press 'V' to enter Free Camera Mode";
+        }
+        else {
+            hud = "Day: " + ofToString(myTree.getDayCount()) + " / 50\n";
+            hud += "Weather: " + weather.getName() + "\n";
+            hud += "[1] Water [2] Fertilizer [3] Kotodama\n";
+            hud += "Debug: Press 'W' to Change Weather";
+        }
         ofDrawBitmapString(hud, 20, 20);
-    }
-    else {
-        // 鑑賞モード中の操作ガイド（左下に控えめに表示）
-        ofSetColor(255, 150);
-        ofDrawBitmapString("VIEW MODE: ON (Press 'V' to exit)\nDrag to Rotate / Scroll to Zoom", 20, ofGetHeight() - 40);
     }
 }
 
 //--------------------------------------------------------------
 void ofApp::keyPressed(int key) {
+    // 天気の手動切り替え（デバッグ用：'W'キー）
+    if (key == 'w' || key == 'W') {
+        weather.randomize();
+    }
+    // デバッグ用リセットボタン
+    if (key == 'r' || key == 'R') {
+        myTree.reset();         // 木の状態を初期化
+        weather.setup();        // 雨のラインを再生成
+        weather.state = SUNNY;  // 天候を晴れに戻す
+        camAutoRotation = 0;    // カメラの回転位置をリセット
+
+        // 鑑賞モードの場合は通常モードに戻す（任意）
+        bViewMode = false;
+        cam.disableMouseInput();
+    }
     // 'V'キーで鑑賞モードを切り替え
     if (key == 'v' || key == 'V') {
         bViewMode = !bViewMode;
@@ -405,7 +518,7 @@ void ofApp::keyPressed(int key) {
         }
     }
     // 1〜30日に応じた基本ブースト (1.0 - 2.5倍)
-    if (!bViewMode) {
+    if (!bViewMode && myTree.getDayCount() < 50) {
         float dayBoost = ofMap(myTree.getDayCount(), 1, 30, 1.0f, 2.5f, true);
         float weatherBonus = 1.0f;
         bool actionTaken = false;
@@ -472,18 +585,20 @@ class ofApp : public ofBaseApp{
 		void dragEvent(ofDragInfo dragInfo);
 		void gotMessage(ofMessage msg);
 		bool bViewMode = false;
+		float camAutoRotation = 0;
 		Tree myTree;
 		Weather weather;
 		Ground ground;
 		ofEasyCam cam;
+		ofLight light;
 };
 </file>
 
 <file path="Tree.cpp">
 #include "Tree.h"
-
 void Tree::setup() {
     seed = ofRandom(99999);
+    maxMutationReached = 0;
 }
 
 void Tree::update() {
@@ -491,20 +606,20 @@ void Tree::update() {
     bLen = ofLerp(bLen, tLen, 0.1f);
     bThick = ofLerp(bThick, tThick, 0.1f);
     bMutation = ofLerp(bMutation, tMutation, 0.1f);
-
-    currentDepth = ofClamp((int)(bLen / 40.0f), 0, 8);
+    currentDepth = ofClamp((int)(bLen / 40.0f), 0, MAX_DEPTH);
+    // 過去最大のカオス度を記録
+    if (bMutation > maxMutationReached) {
+        maxMutationReached = bMutation;
+    }
+    // VBOの更新
+    vboMesh.clear();
+    vboMesh.setMode(OF_PRIMITIVE_TRIANGLES);
+    ofSetRandomSeed(seed);
+    buildBranchMesh(bLen, bThick, currentDepth, glm::mat4(1.0));
 }
 
 void Tree::draw() {
-    ofPushStyle();
-    ofSeedRandom(seed); // 形状を固定ofPushMatrix();
-
-    ofPushMatrix();
-	ofTranslate(0, 0, 0); // 必要に応じて位置調整
-    drawBranch(bLen, bThick, currentDepth);
-    ofPopMatrix();
-
-    ofPopStyle();
+    vboMesh.draw();
 }
 
 void Tree::water(float buff) {
@@ -521,60 +636,196 @@ void Tree::kotodama(float buff) {
     tMutation = ofClamp(tMutation + 0.1f * buff, 0.0f, 1.0f); // 言霊で上昇
 }
 
-void Tree::drawBranch(float length, float thickness, int depth) {
-    if (depth < 0) {
-        // 先端の装飾
-        if (bMutation > 0.4 && length > 5.0) drawFlower(thickness);
-        else drawLeaf();
-        return;
+void Tree::buildBranchMesh(float length, float thickness, int depth, glm::mat4 mat) {
+    if (depth < 0) return;
+
+    // 1. 現在の枝を描画
+    addStemToMesh(thickness, thickness * 0.7f, length, mat);
+
+    // 2. 枝の先端の位置行列を取得（装飾の配置用）
+    glm::mat4 tipMat = glm::translate(mat, glm::vec3(0, length, 0));
+
+    // 3. 装飾ロジックの適用
+    bool isBloomed = (maxMutationReached > 0.4);
+
+    if (isBloomed) {
+        if (depth == 0) {
+            addFlowerToMesh(thickness, tipMat); // 先端に球体の花
+        }
+        else if (depth == 1 || depth == 2) {
+            addLeafToMesh(thickness, tipMat);   // 1,2段目に葉
+        }
+    }
+    else {
+        if (depth == 0 || depth == 1) {
+            addLeafToMesh(thickness, tipMat);   // 未開花時は先端1段目まで葉
+        }
     }
 
-    // 色彩計算：Mutationが高いほど色が激しく変化
-    float hue = ofMap(bMutation, 0, 1, 30, 200) + ofRandom(-20, 20) * bMutation;
-    ofSetColor(ofColor::fromHsb(hue, 150, 100 + (length * 0.5)));
-
-    drawStem(thickness, thickness * 0.7f, length);
-    ofTranslate(0, length, 0);
-
-    // 分岐アルゴリズム：仕様書通り先端付近(depth < 2)は2本、それ以外は3本
+    // 4. 次の枝へ再帰
     int numBranches = (depth < 2) ? 2 : 3;
     float angleBase = 25.0f + (bMutation * 45.0f);
 
     for (int i = 0; i < numBranches; i++) {
-        ofPushMatrix();
-        ofRotateYDeg(i * (360.0f / numBranches));
-        ofRotateZDeg(angleBase + ofRandom(-10, 10) * bMutation);
-        drawBranch(length * 0.75f, thickness * 0.7f, depth - 1);
-        ofPopMatrix();
+        glm::mat4 childMat = tipMat;
+        childMat = glm::rotate(childMat, glm::radians(i * (360.0f / numBranches)), glm::vec3(0, 1, 0));
+        childMat = glm::rotate(childMat, glm::radians(angleBase + ofRandom(-10, 10) * bMutation), glm::vec3(0, 0, 1));
+        buildBranchMesh(length * 0.75f, thickness * 0.7f, depth - 1, childMat);
     }
 }
 
-// Processing版のロジックをoFのofMeshで実装
-void Tree::drawStem(float r1, float r2, float h) {
-    ofMesh mesh;
-    mesh.setMode(OF_PRIMITIVE_TRIANGLE_STRIP);
+void Tree::addStemToMesh(float r1, float r2, float h, glm::mat4 mat) {
     int segments = 5;
-    for (int i = 0; i <= segments; i++) {
-        float angle = i * TWO_PI / segments;
-        float x = cos(angle);
-        float z = sin(angle);
+    float hue = ofMap(bMutation, 0, 1, 30, 200) + ofRandom(-20, 20) * bMutation;
+    ofColor col = ofColor::fromHsb(hue, 150, 100 + (h * 0.5));
 
-        mesh.addVertex(ofVec3f(x * r1, 0, z * r1));
-        mesh.addVertex(ofVec3f(x * r2, h, z * r2));
+    // 法線変換用の行列
+    glm::mat3 normalMatrix = glm::inverseTranspose(glm::mat3(mat));
+
+    for (int i = 0; i < segments; i++) {
+        float a1 = i * TWO_PI / segments;
+        float a2 = (i + 1) * TWO_PI / segments;
+
+        // 側面方向のベクトル（法線の基礎）
+        glm::vec3 n1(cos(a1), 0, sin(a1));
+        glm::vec3 n2(cos(a2), 0, sin(a2));
+
+        glm::vec4 p1(n1.x * r1, 0, n1.z * r1, 1);
+        glm::vec4 p2(n2.x * r1, 0, n2.z * r1, 1);
+        glm::vec4 p3(n1.x * r2, h, n1.z * r2, 1);
+        glm::vec4 p4(n2.x * r2, h, n2.z * r2, 1);
+
+        // カオス度による形状崩壊 (ofNoise)
+        if (bMutation > 0.9f) {
+            float time = ofGetElapsedTimef();
+            float nStr = (bMutation - 0.9f) * 100.0f;
+            auto applyNoise = [&](glm::vec4& p) {
+                p.x += ofSignedNoise(p.x * 0.1, p.y * 0.1, time) * nStr;
+                p.z += ofSignedNoise(p.z * 0.1, p.y * 0.1, time + 10) * nStr;
+                };
+            applyNoise(p3); applyNoise(p4);
+        }
+
+        // 三角形1
+        vboMesh.addVertex(glm::vec3(mat * p1)); vboMesh.addNormal(normalMatrix * n1); vboMesh.addColor(col);
+        vboMesh.addVertex(glm::vec3(mat * p2)); vboMesh.addNormal(normalMatrix * n2); vboMesh.addColor(col);
+        vboMesh.addVertex(glm::vec3(mat * p3)); vboMesh.addNormal(normalMatrix * n1); vboMesh.addColor(col);
+        // 三角形2
+        vboMesh.addVertex(glm::vec3(mat * p2)); vboMesh.addNormal(normalMatrix * n2); vboMesh.addColor(col);
+        vboMesh.addVertex(glm::vec3(mat * p4)); vboMesh.addNormal(normalMatrix * n2); vboMesh.addColor(col);
+        vboMesh.addVertex(glm::vec3(mat * p3)); vboMesh.addNormal(normalMatrix * n1); vboMesh.addColor(col);
     }
-    mesh.draw();
 }
 
-void Tree::drawLeaf() {
-    ofSetColor(60, 150, 60, 200);
-    ofDrawEllipse(0, 0, 10, 20);
+void Tree::addLeafToMesh(float thickness, glm::mat4 mat) {
+    ofColor lCol(60, 150, 60, 200);
+    float w = thickness * 3.0f;
+    float h = thickness * 6.0f;
+
+    // 葉の4頂点（ひし形）
+    glm::vec4 p1(0, 0, 0, 1);           // 付け根
+    glm::vec4 p2(-w, h * 0.5f, 0, 1);   // 左
+    glm::vec4 p3(w, h * 0.5f, 0, 1);    // 右
+    glm::vec4 p4(0, h, 0, 1);           // 先端
+
+    glm::vec3 n(0, 0, 1); // 法線
+
+    // 三角形1
+    vboMesh.addVertex(glm::vec3(mat * p1)); vboMesh.addNormal(n); vboMesh.addColor(lCol);
+    vboMesh.addVertex(glm::vec3(mat * p2)); vboMesh.addNormal(n); vboMesh.addColor(lCol);
+    vboMesh.addVertex(glm::vec3(mat * p4)); vboMesh.addNormal(n); vboMesh.addColor(lCol);
+    // 三角形2
+    vboMesh.addVertex(glm::vec3(mat * p1)); vboMesh.addNormal(n); vboMesh.addColor(lCol);
+    vboMesh.addVertex(glm::vec3(mat * p3)); vboMesh.addNormal(n); vboMesh.addColor(lCol);
+    vboMesh.addVertex(glm::vec3(mat * p4)); vboMesh.addNormal(n); vboMesh.addColor(lCol);
 }
 
-void Tree::drawFlower(float thickness) {
-    ofSetColor(255, 180, 200);
-    float flowerSize = thickness * 2.5f;
-    ofDrawSphere(flowerSize);
+void Tree::addFlowerToMesh(float thickness, glm::mat4 mat) {
+    ofColor fCol(255, 180, 200);
+    float radius = thickness * 2.2f;
+    int res = 6; // 分割数（高くすると重くなります）
+
+    // 球体の頂点生成ロジック
+    for (int i = 0; i <= res; i++) {
+        float lat0 = PI * (-0.5f + (float)(i - 1) / res);
+        float z0 = sin(lat0);
+        float zr0 = cos(lat0);
+
+        float lat1 = PI * (-0.5f + (float)i / res);
+        float z1 = sin(lat1);
+        float zr1 = cos(lat1);
+
+        for (int j = 0; j <= res; j++) {
+            float lng = 2 * PI * (float)(j - 1) / res;
+            float x = cos(lng);
+            float y = sin(lng);
+
+            // 球体の頂点（法線は中心からのベクトル）
+            glm::vec3 n(x * zr1, y * zr1, z1);
+            glm::vec3 p = n * radius;
+
+            // 枝の先端（h）の位置に配置されるよう、行列を適用
+            vboMesh.addVertex(glm::vec3(mat * glm::vec4(p, 1)));
+            vboMesh.addNormal(glm::normalize(glm::mat3(mat) * n));
+            vboMesh.addColor(fCol);
+        }
+    }
 }
+
+void Tree::reset() {
+    // 育成状態の初期化
+    dayCount = 1;
+    maxMutationReached = 0; // 開花状態をリセット
+
+    // パラメータを初期値へ
+    bLen = 0; tLen = 10;
+    bThick = 0; tThick = 2;
+    bMutation = 0; tMutation = 0;
+
+    // 木の形状シードを再生成
+    seed = ofRandom(99999);
+}
+</file>
+
+<file path="Tree.h">
+#pragma once
+#include "ofMain.h"
+
+class Tree {
+public:
+    static const int MAX_DEPTH = 6;
+    void setup();
+    void update();
+    void draw();
+    void reset();
+
+    void water(float buff);      // 長さを伸ばし、カオス度を下げる
+    void fertilize(float buff);  // 太さを増し、カオス度を下げる
+    void kotodama(float buff);   // カオス度を上げる
+
+    // dayCountへのアクセサ
+    int getDayCount() { return dayCount; }
+    void incrementDay() { if (dayCount < 50) dayCount++; }
+    float getLen() { return bLen; }
+
+private:
+    // VBO構築用の再帰関数
+    void buildBranchMesh(float length, float thickness, int depth, glm::mat4 mat);
+    void addStemToMesh(float r1, float r2, float h, glm::mat4 mat);
+    void addFlowerToMesh(float thickness, glm::mat4 mat);
+    void addLeafToMesh(float thickness, glm::mat4 mat);
+
+    // 現在のパラメータ（描画用と目標値）
+    float bLen = 0, bThick = 0, bMutation = 0;
+    float tLen = 10, tThick = 2, tMutation = 0;
+
+    int currentDepth = 0;
+    int dayCount = 1;
+    unsigned int seed;
+    float maxMutationReached = 0;
+
+    ofVboMesh vboMesh;
+};
 </file>
 
 </files>

@@ -6,11 +6,16 @@ void ofApp::setup() {
     ofEnableDepthTest();
     ofEnableSmoothing();
     myTree.setup();
+    weather.setup();
     ground.setup();
+
+    ofEnableLighting();
+    light.setup();
     // カメラの初期位置設定
     cam.setGlobalPosition(ofVec3f(0, 250, 250));
     cam.lookAt(ofVec3f(0, 0, 0)); // 木の半分くらいの高さを見つめる
     cam.setDistance(600);
+    cam.setFarClip(20000);
     cam.setNearClip(0.1);
     cam.setTarget(ofVec3f(0, 0, 0));
 
@@ -21,52 +26,102 @@ void ofApp::setup() {
 //--------------------------------------------------------------
 void ofApp::update() {
     myTree.update();
+    weather.update();
 
     // 2. 木の成長に合わせてカメラを引くロジック
     // 木の推定全高（bLenの約4倍）を取得
     if (!bViewMode) {
+        // --- カメラの自動ズームと回転 ---
         float currentTreeHeight = myTree.getLen() * 3.5f;
-
-        // 適切な距離を計算（高さの約2.5倍程度）
         float targetDistance = max(600.0f, currentTreeHeight * 1.5f);
-
-        // Lerpで滑らかにズームアウト
         float lerpedDistance = ofLerp(cam.getDistance(), targetDistance, 0.05f);
         cam.setDistance(lerpedDistance);
 
-        // 注視点（Target）も木の中心（高さの半分）に合わせる
-        ofVec3f currentTarget = cam.getTarget().getPosition();
+        // 中心（高さの40%付近）を見つめる
         ofVec3f newTarget(0, currentTreeHeight * 0.4f, 0);
-        cam.setTarget(currentTarget.getInterpolated(newTarget, 0.05f));
+
+        ofVec3f currentTarget = cam.getTarget().getPosition();
+        ofVec3f lerpedTarget = currentTarget.getInterpolated(newTarget, 0.05f);
+        cam.setTarget(lerpedTarget);
+
+        // 毎フレーム少しずつ回転角を増やす
+        camAutoRotation += 0.2f;
+        // カメラの位置を円周上で計算して更新
+        float rad = ofDegToRad(camAutoRotation);
+        cam.setPosition(sin(rad) * lerpedDistance, newTarget.y, cos(rad) * lerpedDistance);
+        cam.lookAt(newTarget);
     }
 }
 
 //--------------------------------------------------------------
 void ofApp::draw() {
     ofBackground(weather.getBgColor());
+    // --- 1. 3D描画（ライト有効） ---
+    ofEnableLighting();
+
+    // 天候に応じたライトのパラメータ設定
+    if (weather.state == SUNNY) {
+        light.setDirectional();
+        light.setDiffuseColor(ofColor(255, 250, 230)); // 温かい太陽光
+        light.setOrientation(glm::vec3(-45, -45, 0));
+    }
+    else if (weather.state == MOONLIGHT) {
+        light.setPointLight();
+        light.setDiffuseColor(ofColor(120, 150, 255)); // 冷たい月光
+        light.setPosition(0, 500, 200);
+    }
+    else { // RAINY
+        light.setPointLight();
+        light.setDiffuseColor(ofColor(50, 60, 80)); // どんよりした暗い光
+        light.setPosition(0, 800, 0);
+    }
+
+    light.enable();
+
     cam.begin();
     ground.draw();
     myTree.draw();
     cam.end();
+    light.disable();
+    ofDisableLighting();
+    weather.draw2D();
 
     // HUD表示
     if (!bViewMode) {
         ofSetColor(255);
-        string hud = "Day: " + ofToString(myTree.getDayCount()) + "\n";
-        hud += "Weather: " + weather.getName() + "\n";
-        hud += "[1] Water [2] Fertilizer [3] Kotodama\n";
-        hud += "[V] View Mode: OFF";
+        string hud;
+        if (myTree.getDayCount() >= 50) {
+            hud = "--- GROWTH COMPLETED ---\n";
+            hud += "Final Height: " + ofToString(myTree.getLen(), 1) + "\n";
+            hud += "Press 'V' to enter Free Camera Mode";
+        }
+        else {
+            hud = "Day: " + ofToString(myTree.getDayCount()) + " / 50\n";
+            hud += "Weather: " + weather.getName() + "\n";
+            hud += "[1] Water [2] Fertilizer [3] Kotodama\n";
+            hud += "Debug: Press 'W' to Change Weather";
+        }
         ofDrawBitmapString(hud, 20, 20);
-    }
-    else {
-        // 鑑賞モード中の操作ガイド（左下に控えめに表示）
-        ofSetColor(255, 150);
-        ofDrawBitmapString("VIEW MODE: ON (Press 'V' to exit)\nDrag to Rotate / Scroll to Zoom", 20, ofGetHeight() - 40);
     }
 }
 
 //--------------------------------------------------------------
 void ofApp::keyPressed(int key) {
+    // 天気の手動切り替え（デバッグ用：'W'キー）
+    if (key == 'w' || key == 'W') {
+        weather.randomize();
+    }
+    // デバッグ用リセットボタン
+    if (key == 'r' || key == 'R') {
+        myTree.reset();         // 木の状態を初期化
+        weather.setup();        // 雨のラインを再生成
+        weather.state = SUNNY;  // 天候を晴れに戻す
+        camAutoRotation = 0;    // カメラの回転位置をリセット
+
+        // 鑑賞モードの場合は通常モードに戻す（任意）
+        bViewMode = false;
+        cam.disableMouseInput();
+    }
     // 'V'キーで鑑賞モードを切り替え
     if (key == 'v' || key == 'V') {
         bViewMode = !bViewMode;
@@ -79,7 +134,7 @@ void ofApp::keyPressed(int key) {
         }
     }
     // 1〜30日に応じた基本ブースト (1.0 - 2.5倍)
-    if (!bViewMode) {
+    if (!bViewMode && myTree.getDayCount() < 50) {
         float dayBoost = ofMap(myTree.getDayCount(), 1, 30, 1.0f, 2.5f, true);
         float weatherBonus = 1.0f;
         bool actionTaken = false;
