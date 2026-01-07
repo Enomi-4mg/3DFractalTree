@@ -21,7 +21,7 @@ void Tree::setup(const ofJson& config) {
     //s.twistFactor = 90.0f;
 }
 
-void Tree::update(int growthLevel, int chaosResist, int bloomLevel) {
+void Tree::update(int growthLevel, int chaosResist, int bloomLevel, GrowthType gType, FlowerType fType) {
     // 補間ロジックは維持
     bLen = ofLerp(bLen, tLen, 0.1f);
     bThick = ofLerp(bThick, tThick, 0.1f);
@@ -38,7 +38,7 @@ void Tree::update(int growthLevel, int chaosResist, int bloomLevel) {
         vboMesh.clear();
         ofSetRandomSeed(seed);
         // 構造体 s を経由して描画パラメータを渡す
-        buildBranchMesh(bLen * s.lenScale, bThick * s.thickScale, depthLevel, glm::mat4(1.0), chaosResist, bloomLevel);
+        buildBranchMesh(bLen * s.lenScale, bThick * s.thickScale, depthLevel, glm::mat4(1.0), chaosResist, bloomLevel, gType, fType);
         bNeedsUpdate = false;
     }
 }
@@ -118,11 +118,11 @@ glm::mat4 Tree::getNextBranchMatrix(glm::mat4 tipMat, int index, int total, floa
     return m;
 }
 
-void Tree::buildBranchMesh(float length, float thickness, int depth, glm::mat4 mat, int chaosResist, int bloomLevel) {
+void Tree::buildBranchMesh(float length, float thickness, int depth, glm::mat4 mat, int chaosResist, int bloomLevel, GrowthType gType, FlowerType fType) {
     if (depth < 0) return;
 
     // 現在の枝（幹）をメッシュに追加
-    addStemToMesh(thickness, thickness * s.branchThickRatio, length, mat, chaosResist, depth);
+    addStemToMesh(thickness, thickness * s.branchThickRatio, length, mat, chaosResist, depth, gType);
 
     // 枝の先端の行列を計算
     glm::mat4 tipMat = glm::translate(mat, glm::vec3(0, length, 0));
@@ -131,9 +131,8 @@ void Tree::buildBranchMesh(float length, float thickness, int depth, glm::mat4 m
     float bloomThreshold = 0.4f - (bloomLevel * 0.05f);
     bool isBloomed = (maxMutationReached > bloomThreshold);
 
-    if (isBloomed) {
-        if (depth == 0) addFlowerToMesh(thickness, tipMat);
-        else if (depth <= 1) addLeafToMesh(thickness, tipMat);
+    if (depth == 0 && isBloomed) {
+        addFlowerToMesh(thickness, tipMat, fType);
     }
     else if (depth <= 1) {
         addLeafToMesh(thickness, tipMat);
@@ -145,17 +144,20 @@ void Tree::buildBranchMesh(float length, float thickness, int depth, glm::mat4 m
 
     for (int i = 0; i < numBranches; i++) {
         glm::mat4 childMat = getNextBranchMatrix(tipMat, i, numBranches, angleBase);
-        buildBranchMesh(length * s.branchLenRatio, thickness * s.branchThickRatio, depth - 1, childMat, chaosResist, bloomLevel);
+        buildBranchMesh(length * s.branchLenRatio, thickness * s.branchThickRatio, depth - 1, childMat, chaosResist, bloomLevel, gType, fType);
     }
 }
 
-void Tree::addStemToMesh(float r1, float r2, float h, glm::mat4 mat, int chaosResist, int depth) {
+void Tree::addStemToMesh(float r1, float r2, float h, glm::mat4 mat, int chaosResist, int depth, GrowthType gType) {
     int segments = (depth <= 4) ? 3 : 5; // LOD: 深い枝ほど角数を減らす
     int subdivisions = 4;                // 縦方向の分割数
     int numRings = subdivisions + 1;
 
     // --- 色の計算 ---
     float timeShift = ofGetElapsedTimef() * 20.0f;
+    if (gType == TYPE_ELDRITCH) {
+        timeShift = ofGetElapsedTimef() * 100.0f; // Eldritchは激しく色が動く
+    }
     float hueBase = ofMap(bMutation, 0, 1, s.trunkHueStart, s.trunkHueEnd);
     float finalHue = fmod(hueBase + timeShift + (depth * 10), 255.0f);
     ofColor col = ofColor::fromHsb(finalHue, 160, 180 + (depth * 10));
@@ -240,57 +242,79 @@ float Tree::getDepthProgress() {
 }
 
 void Tree::addLeafToMesh(float thickness, glm::mat4 mat) {
-    ofColor lCol(60, 150, 60, 200);
+    int startIndex = vboMesh.getNumVertices();
+    ofColor lCol = s.leafColor;
     float w = thickness * 3.0f;
     float h = thickness * 6.0f;
 
-    // 葉の4頂点（ひし形）
-    glm::vec4 p1(0, 0, 0, 1);           // 付け根
-    glm::vec4 p2(-w, h * 0.5f, 0, 1);   // 左
-    glm::vec4 p3(w, h * 0.5f, 0, 1);    // 右
-    glm::vec4 p4(0, h, 0, 1);           // 先端
+    // 4頂点 (ひし形)
+    vboMesh.addVertex(glm::vec3(mat * glm::vec4(0, 0, 0, 1)));           // 0: 付け根
+    vboMesh.addVertex(glm::vec3(mat * glm::vec4(-w, h * 0.5f, 0, 1)));   // 1: 左
+    vboMesh.addVertex(glm::vec3(mat * glm::vec4(w, h * 0.5f, 0, 1)));    // 2: 右
+    vboMesh.addVertex(glm::vec3(mat * glm::vec4(0, h, 0, 1)));           // 3: 先端
 
-    glm::vec3 n(0, 0, 1); // 法線
+    for (int i = 0; i < 4; i++) {
+        vboMesh.addNormal(glm::normalize(glm::mat3(mat) * glm::vec3(0, 0, 1)));
+        vboMesh.addColor(lCol);
+    }
 
-    // 三角形1
-    vboMesh.addVertex(glm::vec3(mat * p1)); vboMesh.addNormal(n); vboMesh.addColor(lCol);
-    vboMesh.addVertex(glm::vec3(mat * p2)); vboMesh.addNormal(n); vboMesh.addColor(lCol);
-    vboMesh.addVertex(glm::vec3(mat * p4)); vboMesh.addNormal(n); vboMesh.addColor(lCol);
-    // 三角形2
-    vboMesh.addVertex(glm::vec3(mat * p1)); vboMesh.addNormal(n); vboMesh.addColor(lCol);
-    vboMesh.addVertex(glm::vec3(mat * p3)); vboMesh.addNormal(n); vboMesh.addColor(lCol);
-    vboMesh.addVertex(glm::vec3(mat * p4)); vboMesh.addNormal(n); vboMesh.addColor(lCol);
+    // インデックスで2つの三角形を形成
+    vboMesh.addIndex(startIndex + 0); vboMesh.addIndex(startIndex + 1); vboMesh.addIndex(startIndex + 3);
+    vboMesh.addIndex(startIndex + 0); vboMesh.addIndex(startIndex + 2); vboMesh.addIndex(startIndex + 3);
 }
 
-void Tree::addFlowerToMesh(float thickness, glm::mat4 mat) {
-    ofColor fCol(255, 180, 200);
-    float radius = thickness * 2.2f;
-    int res = 6; // 分割数（高くすると重くなります）
+void Tree::addFlowerToMesh(float thickness, glm::mat4 mat, FlowerType type) {
+    if (type == FLOWER_NONE) return;
 
-    // 球体の頂点生成ロジック
-    for (int i = 0; i <= res; i++) {
-        float lat0 = PI * (-0.5f + (float)(i - 1) / res);
-        float z0 = sin(lat0);
-        float zr0 = cos(lat0);
+    int startIndex = vboMesh.getNumVertices();
+    ofColor fCol = s.flowerColor;
 
-        float lat1 = PI * (-0.5f + (float)i / res);
-        float z1 = sin(lat1);
-        float zr1 = cos(lat1);
+    if (type == FLOWER_CRYSTAL) {
+        // 【Type A: 結晶】 放射状に広がる鋭い三角形
+        float r = thickness * 4.0f;
+        int numPoints = 6;
+        vboMesh.addVertex(glm::vec3(mat * glm::vec4(0, 0, 0, 1))); // 中心
+        vboMesh.addColor(fCol); vboMesh.addNormal(glm::vec3(0, 1, 0));
 
-        for (int j = 0; j <= res; j++) {
-            float lng = 2 * PI * (float)(j - 1) / res;
-            float x = cos(lng);
-            float y = sin(lng);
+        for (int i = 0; i < numPoints; i++) {
+            float ang = i * TWO_PI / numPoints;
+            vboMesh.addVertex(glm::vec3(mat * glm::vec4(cos(ang) * r, thickness, sin(ang) * r, 1)));
+            vboMesh.addColor(fCol); vboMesh.addNormal(glm::vec3(0, 1, 0));
 
-            // 球体の頂点（法線は中心からのベクトル）
-            glm::vec3 n(x * zr1, y * zr1, z1);
-            glm::vec3 p = n * radius;
-
-            // 枝の先端（h）の位置に配置されるよう、行列を適用
-            vboMesh.addVertex(glm::vec3(mat * glm::vec4(p, 1)));
-            vboMesh.addNormal(glm::normalize(glm::mat3(mat) * n));
-            vboMesh.addColor(fCol);
+            vboMesh.addIndex(startIndex);
+            vboMesh.addIndex(startIndex + 1 + i);
+            vboMesh.addIndex(startIndex + 1 + (i + 1) % numPoints);
         }
+    }
+    else if (type == FLOWER_PETAL) {
+        // 【Type B: 花弁】 5枚の柔らかい面
+        float r = thickness * 3.5f;
+        for (int i = 0; i < 5; i++) {
+            int pStart = vboMesh.getNumVertices();
+            float ang = i * TWO_PI / 5;
+            // 簡易的な花びら1枚(三角形)
+            vboMesh.addVertex(glm::vec3(mat * glm::vec4(0, 0, 0, 1)));
+            vboMesh.addVertex(glm::vec3(mat * glm::vec4(cos(ang - 0.3) * r, r * 0.5, sin(ang - 0.3) * r, 1)));
+            vboMesh.addVertex(glm::vec3(mat * glm::vec4(cos(ang + 0.3) * r, r * 0.5, sin(ang + 0.3) * r, 1)));
+            for (int k = 0; k < 3; k++) { vboMesh.addColor(fCol); vboMesh.addNormal(glm::vec3(0, 1, 0)); }
+            vboMesh.addIndex(pStart); vboMesh.addIndex(pStart + 1); vboMesh.addIndex(pStart + 2);
+        }
+    }
+    else if (type == FLOWER_SPIRIT) {
+        // 【Type C: 霊魂】 ゆらゆら揺れる尖った火の玉
+        float r = thickness * 2.5f;
+        float time = ofGetElapsedTimef() * 3.0f;
+        float offset = ofSignedNoise(time) * 15.0f;
+
+        vboMesh.addVertex(glm::vec3(mat * glm::vec4(offset, r * 5.0f, 0, 1))); // 尖った先端
+        vboMesh.addVertex(glm::vec3(mat * glm::vec4(-r, 0, -r, 1)));
+        vboMesh.addVertex(glm::vec3(mat * glm::vec4(r, 0, -r, 1)));
+        vboMesh.addVertex(glm::vec3(mat * glm::vec4(0, 0, r, 1)));
+
+        for (int k = 0; k < 4; k++) { vboMesh.addColor(ofColor(150, 200, 255, 180)); vboMesh.addNormal(glm::vec3(0, 1, 0)); }
+        // 四面体のインデックス
+        int idxs[] = { 0,1,2, 0,2,3, 0,3,1 };
+        for (int id : idxs) vboMesh.addIndex(startIndex + id);
     }
 }
 

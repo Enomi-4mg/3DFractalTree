@@ -4,8 +4,8 @@
 
 class Tree {
 public:
-    void setup(const ofJson& config);
-    void update(int growthLevel, int chaosResist, int bloomLevel);
+    void setup(const ofJson& config); 
+    void update(int growthLevel, int chaosResist, int bloomLevel, GrowthType gType, FlowerType fType);
     void draw();
     void reset();
 
@@ -34,9 +34,9 @@ public:
 private:
     // 内部ロジック：座標変換とメッシュ構築
     glm::mat4 getNextBranchMatrix(glm::mat4 tipMat, int index, int total, float angleBase);
-    void buildBranchMesh(float length, float thickness, int depth, glm::mat4 mat, int chaosResist, int bloomLevel);
-    void addStemToMesh(float r1, float r2, float h, glm::mat4 mat, int chaosResist,int depth);
-    void addFlowerToMesh(float thickness, glm::mat4 mat);
+    void buildBranchMesh(float length, float thickness, int depth, glm::mat4 mat, int chaosResist, int bloomLevel, GrowthType gType, FlowerType fType);
+    void addStemToMesh(float r1, float r2, float h, glm::mat4 mat, int chaosResist,int depth, GrowthType gType);
+    void addFlowerToMesh(float thickness, glm::mat4 mat, FlowerType type);
     void addLeafToMesh(float thickness, glm::mat4 mat);
     float getExpForDepth(int d);
 

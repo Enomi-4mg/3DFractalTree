@@ -62,7 +62,7 @@ void ofApp::update() {
         else state.finalTitle = "Great Spirit Tree";
     }
 
-    myTree.update(growthLevel, chaosResistLevel, bloomCatalystLevel);
+    myTree.update(growthLevel, chaosResistLevel, bloomCatalystLevel, state.currentType, state.currentFlowerType);
     weather.update();
 
     updateCamera();
@@ -399,14 +399,33 @@ void ofApp::spawn2DEffect(ParticleType type) {
 //--------------------------------------------------------------
 void ofApp::keyPressed(int key) {
     if (key == 'd' || key == 'D') state.bShowDebug = !state.bShowDebug;
-    if (key == 'w' || key == 'W') weather.randomize();
     if (key == 'v' || key == 'V') {
         state.bViewMode = !state.bViewMode;
         state.bViewMode ? cam.enableMouseInput() : cam.disableMouseInput();
     }
-    if (state.bShowDebug && key == '+') {
-        myTree.water(5.0, 0, 50.0);
-        myTree.fertilize(5.0, 0, 50.0);
+    if (state.bShowDebug) {
+        if (key == 'w' || key == 'W') weather.randomize();
+        // [T]キーで日数を一気に進める
+        if (key == 't' || key == 'T') {
+            for (int i = 0; i < 5; i++) {
+                myTree.incrementDay();
+                checkEvolution();
+            }
+        }
+        // [E]キーで強制的に特定の進化をテスト（例：ELDRITCH）
+        if (key == 'e' || key == 'E') {
+            state.currentType = TYPE_ELDRITCH;
+            myTree.applyEvolution(TYPE_ELDRITCH);
+        }
+        // [F]キーで強制的に開花状態をテスト
+        if (key == 'f' || key == 'F') {
+            state.currentFlowerType = FLOWER_SPIRIT;
+            myTree.incrementDay(); // 描画更新用
+        }
+        if (state.bShowDebug && key == '+') {
+            myTree.water(5.0, 0, 50.0);
+            myTree.fertilize(5.0, 0, 50.0);
+        }
     }
     if (key == 'r' || key == 'R') {
         myTree.reset();
@@ -432,12 +451,12 @@ void ofApp::processCommand(int key) {
     bool wasBloomed = (myTree.getMaxMutation() > threshold);
 
     if (key == '1') {
-        myTree.water(1.0, growthLevel, g.value("water_increment", 15.0f));
+        myTree.water(1.0, chaosResistLevel, g.value("water_increment", 15.0f));
         spawn2DEffect(P_WATER);
         actionTaken = true;
     }
     else if (key == '2') {
-        myTree.fertilize(1.0, growthLevel, g.value("fertilize_increment", 8.0f));
+        myTree.fertilize(1.0, chaosResistLevel, g.value("fertilize_increment", 8.0f));
         spawn2DEffect(P_FERTILIZER);
         actionTaken = true;
     }
@@ -465,8 +484,9 @@ void ofApp::upgradeResist() { if (state.skillPoints > 0 && chaosResistLevel < 5)
 void ofApp::upgradeCatalyst() { if (state.skillPoints > 0 && bloomCatalystLevel < 5) { bloomCatalystLevel++; state.skillPoints--; } }
 
 void ofApp::checkEvolution() {
+    int day = myTree.getDayCount();
     // 20日目かつ、まだデフォルト状態の場合のみ実行
-    if (myTree.getDayCount() == 20 && state.currentType == TYPE_DEFAULT) {
+    if (day == 20 && state.currentType == TYPE_DEFAULT) {
         float L = myTree.getTotalLenEarned();
         float T = myTree.getTotalThickEarned();
         float M = myTree.getTotalMutationEarned();
@@ -483,6 +503,15 @@ void ofApp::checkEvolution() {
         spawn2DEffect(P_BLOOM);
 
         ofLogNotice("Evolution") << "Tree evolved into Type: " << state.currentType;
+    }
+    if (day == 40 && state.currentFlowerType == FLOWER_NONE) {
+        // 現在の成長タイプに応じて花の形を決定
+        if (state.currentType == TYPE_ELEGANT) state.currentFlowerType = FLOWER_CRYSTAL;
+        else if (state.currentType == TYPE_STURDY) state.currentFlowerType = FLOWER_PETAL;
+        else state.currentFlowerType = FLOWER_SPIRIT;
+
+        spawn2DEffect(P_BLOOM);
+        ofLogNotice("Evolution") << "Flower Evolved: " << state.currentFlowerType;
     }
 }
 

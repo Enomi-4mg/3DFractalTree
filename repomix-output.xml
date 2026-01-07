@@ -80,52 +80,6 @@ ofxGui
 
 </file>
 
-<file path="Constants.h">
-// Constants.h
-#pragma once
-#include "ofMain.h"
-
-// Źˇ^CvĚč`
-enum GrowthType {
-    TYPE_DEFAULT,
-    TYPE_ELEGANT,  // ˇłd
-    TYPE_STURDY,   // žłd
-    TYPE_ELDRITCH  // JIXd
-};
-
-// JÔ^CvĚč`
-enum FlowerType {
-    FLOWER_NONE,
-    FLOWER_CRYSTAL, // áĚť
-    FLOWER_PETAL,   // ÔŮ
-    FLOWER_SPIRIT   // ě°iqg_}j
-};
-
-struct TreeSettings {
-    int maxDepth;
-    float expBase, expPower;
-    float lenScale, thickScale;
-    float branchLenRatio, branchThickRatio;
-    float baseAngle, mutationAngleMax;
-    float trunkHueStart, trunkHueEnd;
-    float twistFactor = 0.0f;
-    ofColor leafColor, flowerColor;
-};
-
-struct GameState {
-    int dayCount = 1;
-    int skillPoints = 3;
-    bool bGameEnded = false;
-    bool bViewMode = false;
-    bool bShowDebug = false;
-    string finalTitle = "";
-    int maxDays = 50;
-    GrowthType currentType = TYPE_DEFAULT;
-    FlowerType currentFlowerType = FLOWER_NONE;
-    int resilienceLevel = 0;
-};
-</file>
-
 <file path="icon.rc">
 // Icon Resource Definition
 #define MAIN_ICON                       102
@@ -287,6 +241,52 @@ Verdana.ttf
         "fertilize_increment": 8.0
     }
 }
+</file>
+
+<file path="Constants.h">
+// Constants.h
+#pragma once
+#include "ofMain.h"
+
+// Źˇ^CvĚč`
+enum GrowthType {
+    TYPE_DEFAULT,
+    TYPE_ELEGANT,  // ˇłd
+    TYPE_STURDY,   // žłd
+    TYPE_ELDRITCH  // JIXd
+};
+
+// JÔ^CvĚč`
+enum FlowerType {
+    FLOWER_NONE,
+    FLOWER_CRYSTAL, // áĚť
+    FLOWER_PETAL,   // ÔŮ
+    FLOWER_SPIRIT   // ě°iqg_}j
+};
+
+struct TreeSettings {
+    int maxDepth;
+    float expBase, expPower;
+    float lenScale, thickScale;
+    float branchLenRatio, branchThickRatio;
+    float baseAngle, mutationAngleMax;
+    float trunkHueStart, trunkHueEnd;
+    float twistFactor = 0.0f;
+    ofColor leafColor, flowerColor;
+};
+
+struct GameState {
+    int dayCount = 1;
+    int skillPoints = 3;
+    bool bGameEnded = false;
+    bool bViewMode = false;
+    bool bShowDebug = false;
+    string finalTitle = "";
+    int maxDays = 50;
+    GrowthType currentType = TYPE_DEFAULT;
+    FlowerType currentFlowerType = FLOWER_NONE;
+    int resilienceLevel = 0;
+};
 </file>
 
 <file path="Particle.h">
@@ -515,6 +515,111 @@ public:
 </Project>
 </file>
 
+<file path="src/ofApp.h">
+#pragma once
+#include "ofMain.h"
+#include "ofxGui.h"
+#include "..\Tree.h"
+#include "..\Weather.h"
+#include "..\Ground.h"
+#include "../Particle.h"
+
+
+enum ParticleType { P_WATER, P_FERTILIZER, P_KOTODAMA, P_RAIN_SPLASH, P_BLOOM };
+
+struct Particle2D {
+	glm::vec2 pos, vel;
+	ofColor color;
+	float size, life = 1.0, decay;
+	ParticleType type;
+
+	void update() {
+		pos += vel;
+		if (type == P_FERTILIZER) pos.x += sin(ofGetElapsedTimef() * 5.0) * 2.0;
+		life -= decay;
+	}
+
+	void draw() {
+		ofSetColor(color, life * 255);
+		if (type == P_RAIN_SPLASH) {
+			ofSetLineWidth(2);
+			ofNoFill();
+			ofDrawEllipse(pos, size * (1.0 - life) * 2.0, size * (1.0 - life)); // 広がる波紋
+			ofFill();
+		}
+		else {
+			ofDrawCircle(pos, size * (life + 0.2)); // 徐々に小さくなる円
+		}
+	}
+};
+
+class ofApp : public ofBaseApp{
+	public:
+		// --- 標準イベント ---
+		void setup();
+		void update();
+		void draw();
+		void keyPressed(int key);
+
+		// --- 各種イベント ---
+		void keyReleased(int key);
+		void mouseMoved(int x, int y );
+		void mouseDragged(int x, int y, int button);
+		void mousePressed(int x, int y, int button);
+		void mouseReleased(int x, int y, int button);
+		void mouseEntered(int x, int y);
+		void mouseExited(int x, int y);
+		void windowResized(int w, int h);
+		void dragEvent(ofDragInfo dragInfo);
+		void gotMessage(ofMessage msg);
+
+	private:
+		// UIコンポーネントの分割
+		void drawHUD();
+		void drawStatusPanel();
+		void drawControlPanel();
+		void drawViewModeOverlay();
+		void drawDebugOverlay();
+		ofTrueTypeFont mainFont;
+		float getUIScale();
+		void drawDualParamBar(string label, float x, float y, float w, float currentRatio, float maxRatio, ofColor col);
+
+		void updateCamera();
+		void processCommand(int key);
+		void setupLighting();
+		void spawnBloomParticles();
+		void spawn2DEffect(ParticleType type);
+
+		// --- スキル処理 ---
+		void upgradeGrowth();
+		void upgradeResist();
+		void upgradeCatalyst(); 
+
+
+		void checkEvolution();
+
+		// --- システム変数と設定 ---
+		ofJson config;
+		GameState state;
+		float camAutoRotation = 0;
+		float visualDepthProgress = 0;
+
+		// --- オブジェクト群 ---
+		Tree myTree;
+		Weather weather;
+		Ground ground;
+		ofEasyCam cam;
+		ofLight light;
+		vector<Particle> particles;
+		vector<Particle2D> particles2D;
+
+		// --- GUI ---
+		ofxPanel gui;
+		ofParameter<int> growthLevel, chaosResistLevel, bloomCatalystLevel;
+		ofxButton btnGrowth, btnResist, btnCatalyst;
+};
+</file>
+
 <file path="src/ofApp.cpp">
 #include "ofApp.h"
 
@@ -580,7 +685,7 @@ void ofApp::update() {
         else state.finalTitle = "Great Spirit Tree";
     }
 
-    myTree.update(growthLevel, chaosResistLevel, bloomCatalystLevel);
+    myTree.update(growthLevel, chaosResistLevel, bloomCatalystLevel, state.currentType, state.currentFlowerType);
     weather.update();
 
     updateCamera();
@@ -595,39 +700,6 @@ void ofApp::update() {
     if (weather.state == RAINY && ofGetFrameNum() % 3 == 0) {
         spawn2DEffect(P_RAIN_SPLASH);
     }
-
-    //if (bGameEnded && !bViewMode) {
-    //    // 【修正】終了時のカメラ：水平視点かつ木のサイズに合わせた距離
-    //    camAutoRotation += 0.3f;
-    //    float centerHeight = myTree.getLen() * 1.5f; // 木の中心
-    //    float targetDist = myTree.getLen() * 5.0f;   // 木のサイズに合わせた距離
-
-    //    float rad = ofDegToRad(camAutoRotation);
-    //    // y座標を centerHeight と同じにすることで水平を保つ
-    //    cam.setPosition(sin(rad) * targetDist, centerHeight, cos(rad) * targetDist);
-    //    cam.lookAt(glm::vec3(0, centerHeight, 0));
-    //}
-    //else if (!bViewMode) {
-    //    // --- カメラの自動ズームと回転 ---
-    //    float currentTreeHeight = myTree.getLen() * 3.5f;
-    //    float targetDistance = max(600.0f, currentTreeHeight * 1.5f);
-    //    float lerpedDistance = ofLerp(cam.getDistance(), targetDistance, 0.05f);
-    //    cam.setDistance(lerpedDistance);
-
-    //    // 中心（高さの40%付近）を見つめる
-    //    ofVec3f newTarget(0, currentTreeHeight * 0.4f, 0);
-
-    //    ofVec3f currentTarget = cam.getTarget().getPosition();
-    //    ofVec3f lerpedTarget = currentTarget.getInterpolated(newTarget, 0.05f);
-    //    cam.setTarget(lerpedTarget);
-
-    //    // 毎フレーム少しずつ回転角を増やす
-    //    camAutoRotation += 0.2f;
-    //    // カメラの位置を円周上で計算して更新
-    //    float rad = ofDegToRad(camAutoRotation);
-    //    cam.setPosition(sin(rad) * lerpedDistance, newTarget.y, cos(rad) * lerpedDistance);
-    //    cam.lookAt(newTarget);
-    //}
 }
 
 //--------------------------------------------------------------
@@ -950,14 +1022,33 @@ void ofApp::spawn2DEffect(ParticleType type) {
 //--------------------------------------------------------------
 void ofApp::keyPressed(int key) {
     if (key == 'd' || key == 'D') state.bShowDebug = !state.bShowDebug;
-    if (key == 'w' || key == 'W') weather.randomize();
     if (key == 'v' || key == 'V') {
         state.bViewMode = !state.bViewMode;
         state.bViewMode ? cam.enableMouseInput() : cam.disableMouseInput();
     }
-    if (state.bShowDebug && key == '+') {
-        myTree.water(5.0, 0, 50.0);
-        myTree.fertilize(5.0, 0, 50.0);
+    if (state.bShowDebug) {
+        if (key == 'w' || key == 'W') weather.randomize();
+        // [T]キーで日数を一気に進める
+        if (key == 't' || key == 'T') {
+            for (int i = 0; i < 5; i++) {
+                myTree.incrementDay();
+                checkEvolution();
+            }
+        }
+        // [E]キーで強制的に特定の進化をテスト（例：ELDRITCH）
+        if (key == 'e' || key == 'E') {
+            state.currentType = TYPE_ELDRITCH;
+            myTree.applyEvolution(TYPE_ELDRITCH);
+        }
+        // [F]キーで強制的に開花状態をテスト
+        if (key == 'f' || key == 'F') {
+            state.currentFlowerType = FLOWER_SPIRIT;
+            myTree.incrementDay(); // 描画更新用
+        }
+        if (state.bShowDebug && key == '+') {
+            myTree.water(5.0, 0, 50.0);
+            myTree.fertilize(5.0, 0, 50.0);
+        }
     }
     if (key == 'r' || key == 'R') {
         myTree.reset();
@@ -983,12 +1074,12 @@ void ofApp::processCommand(int key) {
     bool wasBloomed = (myTree.getMaxMutation() > threshold);
 
     if (key == '1') {
-        myTree.water(1.0, growthLevel, g.value("water_increment", 15.0f));
+        myTree.water(1.0, chaosResistLevel, g.value("water_increment", 15.0f));
         spawn2DEffect(P_WATER);
         actionTaken = true;
     }
     else if (key == '2') {
-        myTree.fertilize(1.0, growthLevel, g.value("fertilize_increment", 8.0f));
+        myTree.fertilize(1.0, chaosResistLevel, g.value("fertilize_increment", 8.0f));
         spawn2DEffect(P_FERTILIZER);
         actionTaken = true;
     }
@@ -1000,6 +1091,7 @@ void ofApp::processCommand(int key) {
 
     if (actionTaken) {
         myTree.incrementDay();
+        checkEvolution();
         if (myTree.getDayCount() % config["game"].value("skill_interval", 5) == 0) {
             state.skillPoints++;
         }
@@ -1014,6 +1106,38 @@ void ofApp::upgradeGrowth() { if (state.skillPoints > 0 && growthLevel < 5) { gr
 void ofApp::upgradeResist() { if (state.skillPoints > 0 && chaosResistLevel < 5) { chaosResistLevel++; state.skillPoints--; } }
 void ofApp::upgradeCatalyst() { if (state.skillPoints > 0 && bloomCatalystLevel < 5) { bloomCatalystLevel++; state.skillPoints--; } }
 
+void ofApp::checkEvolution() {
+    int day = myTree.getDayCount();
+    // 20日目かつ、まだデフォルト状態の場合のみ実行
+    if (day == 20 && state.currentType == TYPE_DEFAULT) {
+        float L = myTree.getTotalLenEarned();
+        float T = myTree.getTotalThickEarned();
+        float M = myTree.getTotalMutationEarned();
+
+        // 最大の蓄積値を持つパラメタに応じて分岐
+        if (L >= T && L >= M) state.currentType = TYPE_ELEGANT;
+        else if (T >= L && T >= M) state.currentType = TYPE_STURDY;
+        else state.currentType = TYPE_ELDRITCH;
+
+        // 木に進化を適用
+        myTree.applyEvolution(state.currentType);
+
+        // 進化演出：パーティクル放出
+        spawn2DEffect(P_BLOOM);
+
+        ofLogNotice("Evolution") << "Tree evolved into Type: " << state.currentType;
+    }
+    if (day == 40 && state.currentFlowerType == FLOWER_NONE) {
+        // 現在の成長タイプに応じて花の形を決定
+        if (state.currentType == TYPE_ELEGANT) state.currentFlowerType = FLOWER_CRYSTAL;
+        else if (state.currentType == TYPE_STURDY) state.currentFlowerType = FLOWER_PETAL;
+        else state.currentFlowerType = FLOWER_SPIRIT;
+
+        spawn2DEffect(P_BLOOM);
+        ofLogNotice("Evolution") << "Flower Evolved: " << state.currentFlowerType;
+    }
+}
+
 void ofApp::keyReleased(int key) {}
 void ofApp::mouseMoved(int x, int y) {}
 void ofApp::mouseDragged(int x, int y, int button) {}
@@ -1024,108 +1148,6 @@ void ofApp::mouseExited(int x, int y) {}
 void ofApp::windowResized(int w, int h) {}
 void ofApp::gotMessage(ofMessage msg) {}
 void ofApp::dragEvent(ofDragInfo dragInfo) {}
-</file>
-
-<file path="src/ofApp.h">
-#pragma once
-#include "ofMain.h"
-#include "ofxGui.h"
-#include "..\Tree.h"
-#include "..\Weather.h"
-#include "..\Ground.h"
-#include "../Particle.h"
-
-
-enum ParticleType { P_WATER, P_FERTILIZER, P_KOTODAMA, P_RAIN_SPLASH, P_BLOOM };
-
-struct Particle2D {
-	glm::vec2 pos, vel;
-	ofColor color;
-	float size, life = 1.0, decay;
-	ParticleType type;
-
-	void update() {
-		pos += vel;
-		if (type == P_FERTILIZER) pos.x += sin(ofGetElapsedTimef() * 5.0) * 2.0;
-		life -= decay;
-	}
-
-	void draw() {
-		ofSetColor(color, life * 255);
-		if (type == P_RAIN_SPLASH) {
-			ofSetLineWidth(2);
-			ofNoFill();
-			ofDrawEllipse(pos, size * (1.0 - life) * 2.0, size * (1.0 - life)); // 広がる波紋
-			ofFill();
-		}
-		else {
-			ofDrawCircle(pos, size * (life + 0.2)); // 徐々に小さくなる円
-		}
-	}
-};
-
-class ofApp : public ofBaseApp{
-	public:
-		// --- 標準イベント ---
-		void setup();
-		void update();
-		void draw();
-		void keyPressed(int key);
-
-		// --- 各種イベント ---
-		void keyReleased(int key);
-		void mouseMoved(int x, int y );
-		void mouseDragged(int x, int y, int button);
-		void mousePressed(int x, int y, int button);
-		void mouseReleased(int x, int y, int button);
-		void mouseEntered(int x, int y);
-		void mouseExited(int x, int y);
-		void windowResized(int w, int h);
-		void dragEvent(ofDragInfo dragInfo);
-		void gotMessage(ofMessage msg);
-
-	private:
-		// UIコンポーネントの分割
-		void drawHUD();
-		void drawStatusPanel();
-		void drawControlPanel();
-		void drawViewModeOverlay();
-		void drawDebugOverlay();
-		ofTrueTypeFont mainFont;
-		float getUIScale();
-		void drawDualParamBar(string label, float x, float y, float w, float currentRatio, float maxRatio, ofColor col);
-
-		void updateCamera();
-		void processCommand(int key);
-		void setupLighting();
-		void spawnBloomParticles();
-		void spawn2DEffect(ParticleType type);
-
-		// --- スキル処理 ---
-		void upgradeGrowth();
-		void upgradeResist();
-		void upgradeCatalyst();
-
-		// --- システム変数と設定 ---
-		ofJson config;
-		GameState state;
-		float camAutoRotation = 0;
-		float visualDepthProgress = 0;
-
-		// --- オブジェクト群 ---
-		Tree myTree;
-		Weather weather;
-		Ground ground;
-		ofEasyCam cam;
-		ofLight light;
-		vector<Particle> particles;
-		vector<Particle2D> particles2D;
-
-		// --- GUI ---
-		ofxPanel gui;
-		ofParameter<int> growthLevel, chaosResistLevel, bloomCatalystLevel;
-		ofxButton btnGrowth, btnResist, btnCatalyst;
-};
 </file>
 
 <file path="Tree.cpp">
@@ -1147,9 +1169,12 @@ void Tree::setup(const ofJson& config) {
     s.trunkHueStart = c.value("trunk_hue_start", 20.0f);
     s.trunkHueEnd = c.value("trunk_hue_end", 160.0f);
     s.leafColor = ofColor(c["leaf"][0], c["leaf"][1], c["leaf"][2], c["leaf"][3]);
+
+	// test value
+    //s.twistFactor = 90.0f;
 }
 
-void Tree::update(int growthLevel, int chaosResist, int bloomLevel) {
+void Tree::update(int growthLevel, int chaosResist, int bloomLevel, GrowthType gType, FlowerType fType) {
     // 補間ロジックは維持
     bLen = ofLerp(bLen, tLen, 0.1f);
     bThick = ofLerp(bThick, tThick, 0.1f);
@@ -1166,7 +1191,7 @@ void Tree::update(int growthLevel, int chaosResist, int bloomLevel) {
         vboMesh.clear();
         ofSetRandomSeed(seed);
         // 構造体 s を経由して描画パラメータを渡す
-        buildBranchMesh(bLen * s.lenScale, bThick * s.thickScale, depthLevel, glm::mat4(1.0), chaosResist, bloomLevel);
+        buildBranchMesh(bLen * s.lenScale, bThick * s.thickScale, depthLevel, glm::mat4(1.0), chaosResist, bloomLevel, gType, fType);
         bNeedsUpdate = false;
     }
 }
@@ -1215,6 +1240,27 @@ void Tree::kotodama(float buff) {
     totalMutationEarned += mutGain; // 累積加算
 }
 
+void Tree::applyEvolution(GrowthType type) {
+    switch (type) {
+    case TYPE_ELEGANT:
+        s.branchLenRatio = 0.82f;   // より長く伸びる
+        s.baseAngle = 18.0f;        // 鋭角でスマートな印象
+        s.twistFactor = 15.0f;      // 控えめなねじれ
+        break;
+    case TYPE_STURDY:
+        s.branchThickRatio = 0.85f; // 太さを維持
+        s.baseAngle = 35.0f;        // どっしりと広がる
+        s.twistFactor = 40.0f;      // 力強いねじれ
+        break;
+    case TYPE_ELDRITCH:
+        s.mutationAngleMax = 65.0f; // 予測不能な広がり
+        s.twistFactor = 150.0f;     // 激しい螺旋
+        s.trunkHueEnd += 100.0f;    // 色彩変化を拡大
+        break;
+    }
+    bNeedsUpdate = true; // メッシュを再構築
+}
+
 glm::mat4 Tree::getNextBranchMatrix(glm::mat4 tipMat, int index, int total, float angleBase) {
     glm::mat4 m = tipMat;
     // Y軸回転で円状に配置
@@ -1225,11 +1271,11 @@ glm::mat4 Tree::getNextBranchMatrix(glm::mat4 tipMat, int index, int total, floa
     return m;
 }
 
-void Tree::buildBranchMesh(float length, float thickness, int depth, glm::mat4 mat, int chaosResist, int bloomLevel) {
+void Tree::buildBranchMesh(float length, float thickness, int depth, glm::mat4 mat, int chaosResist, int bloomLevel, GrowthType gType, FlowerType fType) {
     if (depth < 0) return;
 
     // 現在の枝（幹）をメッシュに追加
-    addStemToMesh(thickness, thickness * s.branchThickRatio, length, mat, chaosResist, depth);
+    addStemToMesh(thickness, thickness * s.branchThickRatio, length, mat, chaosResist, depth, gType);
 
     // 枝の先端の行列を計算
     glm::mat4 tipMat = glm::translate(mat, glm::vec3(0, length, 0));
@@ -1238,9 +1284,8 @@ void Tree::buildBranchMesh(float length, float thickness, int depth, glm::mat4 m
     float bloomThreshold = 0.4f - (bloomLevel * 0.05f);
     bool isBloomed = (maxMutationReached > bloomThreshold);
 
-    if (isBloomed) {
-        if (depth == 0) addFlowerToMesh(thickness, tipMat);
-        else if (depth <= 1) addLeafToMesh(thickness, tipMat);
+    if (depth == 0 && isBloomed) {
+        addFlowerToMesh(thickness, tipMat, fType);
     }
     else if (depth <= 1) {
         addLeafToMesh(thickness, tipMat);
@@ -1252,14 +1297,20 @@ void Tree::buildBranchMesh(float length, float thickness, int depth, glm::mat4 m
 
     for (int i = 0; i < numBranches; i++) {
         glm::mat4 childMat = getNextBranchMatrix(tipMat, i, numBranches, angleBase);
-        buildBranchMesh(length * s.branchLenRatio, thickness * s.branchThickRatio, depth - 1, childMat, chaosResist, bloomLevel);
+        buildBranchMesh(length * s.branchLenRatio, thickness * s.branchThickRatio, depth - 1, childMat, chaosResist, bloomLevel, gType, fType);
     }
 }
 
-void Tree::addStemToMesh(float r1, float r2, float h, glm::mat4 mat, int chaosResist, int depth) {
-    int segments = (depth <= 4) ? 3 : 5;
+void Tree::addStemToMesh(float r1, float r2, float h, glm::mat4 mat, int chaosResist, int depth, GrowthType gType) {
+    int segments = (depth <= 4) ? 3 : 5; // LOD: 深い枝ほど角数を減らす
+    int subdivisions = 4;                // 縦方向の分割数
+    int numRings = subdivisions + 1;
 
+    // --- 色の計算 ---
     float timeShift = ofGetElapsedTimef() * 20.0f;
+    if (gType == TYPE_ELDRITCH) {
+        timeShift = ofGetElapsedTimef() * 100.0f; // Eldritchは激しく色が動く
+    }
     float hueBase = ofMap(bMutation, 0, 1, s.trunkHueStart, s.trunkHueEnd);
     float finalHue = fmod(hueBase + timeShift + (depth * 10), 255.0f);
     ofColor col = ofColor::fromHsb(finalHue, 160, 180 + (depth * 10));
@@ -1268,30 +1319,61 @@ void Tree::addStemToMesh(float r1, float r2, float h, glm::mat4 mat, int chaosRe
     // 法線変換用の行列
     glm::mat3 normalMatrix = glm::inverseTranspose(glm::mat3(mat));
 
-    for (int i = 0; i < segments; i++) {
-        float a1 = i * TWO_PI / segments;
-        float a2 = (i + 1) * TWO_PI / segments;
-        glm::vec3 n1(cos(a1), 0, sin(a1)), n2(cos(a2), 0, sin(a2));
-        glm::vec4 p1(n1.x * r1, 0, n1.z * r1, 1), p2(n2.x * r1, 0, n2.z * r1, 1);
-        glm::vec4 p3(n1.x * r2, h, n1.z * r2, 1), p4(n2.x * r2, h, n2.z * r2, 1);
+    // 現在のVBOの頂点開始インデックスを記録
+    int startIndex = vboMesh.getNumVertices();
 
-        // 変異度に基づいた形状のノイズアニメーション
-        if (maxMutationReached > 0.5f) {
-            float nStr = ofMap(maxMutationReached, 0.5, 1.0, 0, 120.0f, true);
-            auto applyNoise = [&](glm::vec4& p) {
+    // 1. 頂点と法線の生成
+    for (int ring = 0; ring < numRings; ring++) {
+        float ratio = (float)ring / subdivisions;
+        float currentR = ofLerp(r1, r2, ratio); // テーパリング
+        float currentY = h * ratio;
+
+        // 進化タイプや設定に応じた「ねじれ」の適用
+        float twistAngle = glm::radians(s.twistFactor * ratio);
+
+        for (int i = 0; i < segments; i++) {
+            float angle = (i * TWO_PI / segments) + twistAngle;
+            glm::vec3 unitPos(cos(angle), 0, sin(angle));
+
+            // 頂点座標（ローカル）
+            glm::vec4 p(unitPos.x * currentR, currentY, unitPos.z * currentR, 1);
+
+            // カオス度が高い場合の頂点ノイズ（最上段に近いほど強く揺らす）
+            if (maxMutationReached > 0.5f && ring > 0) {
+                float nStr = ofMap(maxMutationReached, 0.5, 1.0, 0, 120.0f, true) * ratio;
                 p.x += ofSignedNoise(p.x * 0.1, p.y * 0.1, ofGetElapsedTimef()) * nStr;
                 p.z += ofSignedNoise(p.z * 0.1, p.y * 0.1, ofGetElapsedTimef() + 10) * nStr;
-                };
-            applyNoise(p3); applyNoise(p4);
-        }
+            }
 
-        // VBO登録 (三角形1, 2)
-        vboMesh.addVertex(glm::vec3(mat * p1)); vboMesh.addNormal(normalMatrix * n1); vboMesh.addColor(col);
-        vboMesh.addVertex(glm::vec3(mat * p2)); vboMesh.addNormal(normalMatrix * n2); vboMesh.addColor(col);
-        vboMesh.addVertex(glm::vec3(mat * p3)); vboMesh.addNormal(normalMatrix * n1); vboMesh.addColor(col);
-        vboMesh.addVertex(glm::vec3(mat * p2)); vboMesh.addNormal(normalMatrix * n2); vboMesh.addColor(col);
-        vboMesh.addVertex(glm::vec3(mat * p4)); vboMesh.addNormal(normalMatrix * n2); vboMesh.addColor(col);
-        vboMesh.addVertex(glm::vec3(mat * p3)); vboMesh.addNormal(normalMatrix * n1); vboMesh.addColor(col);
+            // VBOへの登録
+            vboMesh.addVertex(glm::vec3(mat * p));
+            vboMesh.addNormal(normalMatrix * unitPos); // 簡易法線
+            vboMesh.addColor(col);
+        }
+    }
+
+    // 2. インデックスの生成（面を貼る）
+    for (int ring = 0; ring < subdivisions; ring++) {
+        for (int i = 0; i < segments; i++) {
+            int nextI = (i + 1) % segments;
+
+            // 現在の層の2点
+            int v0 = startIndex + (ring * segments) + i;
+            int v1 = startIndex + (ring * segments) + nextI;
+            // 次の層の2点
+            int v2 = startIndex + ((ring + 1) * segments) + i;
+            int v3 = startIndex + ((ring + 1) * segments) + nextI;
+
+            // 三角形1
+            vboMesh.addIndex(v0);
+            vboMesh.addIndex(v1);
+            vboMesh.addIndex(v2);
+
+            // 三角形2
+            vboMesh.addIndex(v1);
+            vboMesh.addIndex(v3);
+            vboMesh.addIndex(v2);
+        }
     }
 }
 
@@ -1313,57 +1395,79 @@ float Tree::getDepthProgress() {
 }
 
 void Tree::addLeafToMesh(float thickness, glm::mat4 mat) {
-    ofColor lCol(60, 150, 60, 200);
+    int startIndex = vboMesh.getNumVertices();
+    ofColor lCol = s.leafColor;
     float w = thickness * 3.0f;
     float h = thickness * 6.0f;
 
-    // 葉の4頂点（ひし形）
-    glm::vec4 p1(0, 0, 0, 1);           // 付け根
-    glm::vec4 p2(-w, h * 0.5f, 0, 1);   // 左
-    glm::vec4 p3(w, h * 0.5f, 0, 1);    // 右
-    glm::vec4 p4(0, h, 0, 1);           // 先端
+    // 4頂点 (ひし形)
+    vboMesh.addVertex(glm::vec3(mat * glm::vec4(0, 0, 0, 1)));           // 0: 付け根
+    vboMesh.addVertex(glm::vec3(mat * glm::vec4(-w, h * 0.5f, 0, 1)));   // 1: 左
+    vboMesh.addVertex(glm::vec3(mat * glm::vec4(w, h * 0.5f, 0, 1)));    // 2: 右
+    vboMesh.addVertex(glm::vec3(mat * glm::vec4(0, h, 0, 1)));           // 3: 先端
 
-    glm::vec3 n(0, 0, 1); // 法線
+    for (int i = 0; i < 4; i++) {
+        vboMesh.addNormal(glm::normalize(glm::mat3(mat) * glm::vec3(0, 0, 1)));
+        vboMesh.addColor(lCol);
+    }
 
-    // 三角形1
-    vboMesh.addVertex(glm::vec3(mat * p1)); vboMesh.addNormal(n); vboMesh.addColor(lCol);
-    vboMesh.addVertex(glm::vec3(mat * p2)); vboMesh.addNormal(n); vboMesh.addColor(lCol);
-    vboMesh.addVertex(glm::vec3(mat * p4)); vboMesh.addNormal(n); vboMesh.addColor(lCol);
-    // 三角形2
-    vboMesh.addVertex(glm::vec3(mat * p1)); vboMesh.addNormal(n); vboMesh.addColor(lCol);
-    vboMesh.addVertex(glm::vec3(mat * p3)); vboMesh.addNormal(n); vboMesh.addColor(lCol);
-    vboMesh.addVertex(glm::vec3(mat * p4)); vboMesh.addNormal(n); vboMesh.addColor(lCol);
+    // インデックスで2つの三角形を形成
+    vboMesh.addIndex(startIndex + 0); vboMesh.addIndex(startIndex + 1); vboMesh.addIndex(startIndex + 3);
+    vboMesh.addIndex(startIndex + 0); vboMesh.addIndex(startIndex + 2); vboMesh.addIndex(startIndex + 3);
 }
 
-void Tree::addFlowerToMesh(float thickness, glm::mat4 mat) {
-    ofColor fCol(255, 180, 200);
-    float radius = thickness * 2.2f;
-    int res = 6; // 分割数（高くすると重くなります）
+void Tree::addFlowerToMesh(float thickness, glm::mat4 mat, FlowerType type) {
+    if (type == FLOWER_NONE) return;
 
-    // 球体の頂点生成ロジック
-    for (int i = 0; i <= res; i++) {
-        float lat0 = PI * (-0.5f + (float)(i - 1) / res);
-        float z0 = sin(lat0);
-        float zr0 = cos(lat0);
+    int startIndex = vboMesh.getNumVertices();
+    ofColor fCol = s.flowerColor;
 
-        float lat1 = PI * (-0.5f + (float)i / res);
-        float z1 = sin(lat1);
-        float zr1 = cos(lat1);
+    if (type == FLOWER_CRYSTAL) {
+        // 【Type A: 結晶】 放射状に広がる鋭い三角形
+        float r = thickness * 4.0f;
+        int numPoints = 6;
+        vboMesh.addVertex(glm::vec3(mat * glm::vec4(0, 0, 0, 1))); // 中心
+        vboMesh.addColor(fCol); vboMesh.addNormal(glm::vec3(0, 1, 0));
 
-        for (int j = 0; j <= res; j++) {
-            float lng = 2 * PI * (float)(j - 1) / res;
-            float x = cos(lng);
-            float y = sin(lng);
+        for (int i = 0; i < numPoints; i++) {
+            float ang = i * TWO_PI / numPoints;
+            vboMesh.addVertex(glm::vec3(mat * glm::vec4(cos(ang) * r, thickness, sin(ang) * r, 1)));
+            vboMesh.addColor(fCol); vboMesh.addNormal(glm::vec3(0, 1, 0));
 
-            // 球体の頂点（法線は中心からのベクトル）
-            glm::vec3 n(x * zr1, y * zr1, z1);
-            glm::vec3 p = n * radius;
-
-            // 枝の先端（h）の位置に配置されるよう、行列を適用
-            vboMesh.addVertex(glm::vec3(mat * glm::vec4(p, 1)));
-            vboMesh.addNormal(glm::normalize(glm::mat3(mat) * n));
-            vboMesh.addColor(fCol);
+            vboMesh.addIndex(startIndex);
+            vboMesh.addIndex(startIndex + 1 + i);
+            vboMesh.addIndex(startIndex + 1 + (i + 1) % numPoints);
         }
+    }
+    else if (type == FLOWER_PETAL) {
+        // 【Type B: 花弁】 5枚の柔らかい面
+        float r = thickness * 3.5f;
+        for (int i = 0; i < 5; i++) {
+            int pStart = vboMesh.getNumVertices();
+            float ang = i * TWO_PI / 5;
+            // 簡易的な花びら1枚(三角形)
+            vboMesh.addVertex(glm::vec3(mat * glm::vec4(0, 0, 0, 1)));
+            vboMesh.addVertex(glm::vec3(mat * glm::vec4(cos(ang - 0.3) * r, r * 0.5, sin(ang - 0.3) * r, 1)));
+            vboMesh.addVertex(glm::vec3(mat * glm::vec4(cos(ang + 0.3) * r, r * 0.5, sin(ang + 0.3) * r, 1)));
+            for (int k = 0; k < 3; k++) { vboMesh.addColor(fCol); vboMesh.addNormal(glm::vec3(0, 1, 0)); }
+            vboMesh.addIndex(pStart); vboMesh.addIndex(pStart + 1); vboMesh.addIndex(pStart + 2);
+        }
+    }
+    else if (type == FLOWER_SPIRIT) {
+        // 【Type C: 霊魂】 ゆらゆら揺れる尖った火の玉
+        float r = thickness * 2.5f;
+        float time = ofGetElapsedTimef() * 3.0f;
+        float offset = ofSignedNoise(time) * 15.0f;
+
+        vboMesh.addVertex(glm::vec3(mat * glm::vec4(offset, r * 5.0f, 0, 1))); // 尖った先端
+        vboMesh.addVertex(glm::vec3(mat * glm::vec4(-r, 0, -r, 1)));
+        vboMesh.addVertex(glm::vec3(mat * glm::vec4(r, 0, -r, 1)));
+        vboMesh.addVertex(glm::vec3(mat * glm::vec4(0, 0, r, 1)));
+
+        for (int k = 0; k < 4; k++) { vboMesh.addColor(ofColor(150, 200, 255, 180)); vboMesh.addNormal(glm::vec3(0, 1, 0)); }
+        // 四面体のインデックス
+        int idxs[] = { 0,1,2, 0,2,3, 0,3,1 };
+        for (int id : idxs) vboMesh.addIndex(startIndex + id);
     }
 }
 
@@ -1396,14 +1500,15 @@ int Tree::getCurrentDepth() {
 
 class Tree {
 public:
-    void setup(const ofJson& config);
-    void update(int growthLevel, int chaosResist, int bloomLevel);
+    void setup(const ofJson& config); 
+    void update(int growthLevel, int chaosResist, int bloomLevel, GrowthType gType, FlowerType fType);
     void draw();
     void reset();
 
     void water(float buff, int resilienceLevel, float increment);      // 長さを伸ばし、カオス度を下げる
     void fertilize(float buff, int resilienceLevel, float increment);  // 太さを増し、カオス度を下げる
     void kotodama(float buff);   // カオス度を上げる
+    void applyEvolution(GrowthType type);
     void incrementDay() { if (dayCount < 50) dayCount++; }
 
     // --- アクセサ・ユーティリティ ---
@@ -1425,9 +1530,9 @@ public:
 private:
     // 内部ロジック：座標変換とメッシュ構築
     glm::mat4 getNextBranchMatrix(glm::mat4 tipMat, int index, int total, float angleBase);
-    void buildBranchMesh(float length, float thickness, int depth, glm::mat4 mat, int chaosResist, int bloomLevel);
-    void addStemToMesh(float r1, float r2, float h, glm::mat4 mat, int chaosResist,int depth);
-    void addFlowerToMesh(float thickness, glm::mat4 mat);
+    void buildBranchMesh(float length, float thickness, int depth, glm::mat4 mat, int chaosResist, int bloomLevel, GrowthType gType, FlowerType fType);
+    void addStemToMesh(float r1, float r2, float h, glm::mat4 mat, int chaosResist,int depth, GrowthType gType);
+    void addFlowerToMesh(float thickness, glm::mat4 mat, FlowerType type);
     void addLeafToMesh(float thickness, glm::mat4 mat);
     float getExpForDepth(int d);
 
