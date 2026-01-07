@@ -12,6 +12,7 @@ public:
     void water(float buff, int resilienceLevel, float increment);      // 長さを伸ばし、カオス度を下げる
     void fertilize(float buff, int resilienceLevel, float increment);  // 太さを増し、カオス度を下げる
     void kotodama(float buff);   // カオス度を上げる
+    void applyEvolution(GrowthType type);
     void incrementDay() { if (dayCount < 50) dayCount++; }
 
     // --- アクセサ・ユーティリティ ---

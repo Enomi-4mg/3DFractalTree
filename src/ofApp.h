@@ -75,7 +75,10 @@ class ofApp : public ofBaseApp{
 		// --- スキル処理 ---
 		void upgradeGrowth();
 		void upgradeResist();
-		void upgradeCatalyst();
+		void upgradeCatalyst(); 
+
+
+		void checkEvolution();
 
 		// --- システム変数と設定 ---
 		ofJson config;

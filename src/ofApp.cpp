@@ -77,39 +77,6 @@ void ofApp::update() {
     if (weather.state == RAINY && ofGetFrameNum() % 3 == 0) {
         spawn2DEffect(P_RAIN_SPLASH);
     }
-
-    //if (bGameEnded && !bViewMode) {
-    //    // 【修正】終了時のカメラ：水平視点かつ木のサイズに合わせた距離
-    //    camAutoRotation += 0.3f;
-    //    float centerHeight = myTree.getLen() * 1.5f; // 木の中心
-    //    float targetDist = myTree.getLen() * 5.0f;   // 木のサイズに合わせた距離
-
-    //    float rad = ofDegToRad(camAutoRotation);
-    //    // y座標を centerHeight と同じにすることで水平を保つ
-    //    cam.setPosition(sin(rad) * targetDist, centerHeight, cos(rad) * targetDist);
-    //    cam.lookAt(glm::vec3(0, centerHeight, 0));
-    //}
-    //else if (!bViewMode) {
-    //    // --- カメラの自動ズームと回転 ---
-    //    float currentTreeHeight = myTree.getLen() * 3.5f;
-    //    float targetDistance = max(600.0f, currentTreeHeight * 1.5f);
-    //    float lerpedDistance = ofLerp(cam.getDistance(), targetDistance, 0.05f);
-    //    cam.setDistance(lerpedDistance);
-
-    //    // 中心（高さの40%付近）を見つめる
-    //    ofVec3f newTarget(0, currentTreeHeight * 0.4f, 0);
-
-    //    ofVec3f currentTarget = cam.getTarget().getPosition();
-    //    ofVec3f lerpedTarget = currentTarget.getInterpolated(newTarget, 0.05f);
-    //    cam.setTarget(lerpedTarget);
-
-    //    // 毎フレーム少しずつ回転角を増やす
-    //    camAutoRotation += 0.2f;
-    //    // カメラの位置を円周上で計算して更新
-    //    float rad = ofDegToRad(camAutoRotation);
-    //    cam.setPosition(sin(rad) * lerpedDistance, newTarget.y, cos(rad) * lerpedDistance);
-    //    cam.lookAt(newTarget);
-    //}
 }
 
 //--------------------------------------------------------------
@@ -482,6 +449,7 @@ void ofApp::processCommand(int key) {
 
     if (actionTaken) {
         myTree.incrementDay();
+        checkEvolution();
         if (myTree.getDayCount() % config["game"].value("skill_interval", 5) == 0) {
             state.skillPoints++;
         }
@@ -495,6 +463,28 @@ void ofApp::processCommand(int key) {
 void ofApp::upgradeGrowth() { if (state.skillPoints > 0 && growthLevel < 5) { growthLevel++; state.skillPoints--; } }
 void ofApp::upgradeResist() { if (state.skillPoints > 0 && chaosResistLevel < 5) { chaosResistLevel++; state.skillPoints--; } }
 void ofApp::upgradeCatalyst() { if (state.skillPoints > 0 && bloomCatalystLevel < 5) { bloomCatalystLevel++; state.skillPoints--; } }
+
+void ofApp::checkEvolution() {
+    // 20日目かつ、まだデフォルト状態の場合のみ実行
+    if (myTree.getDayCount() == 20 && state.currentType == TYPE_DEFAULT) {
+        float L = myTree.getTotalLenEarned();
+        float T = myTree.getTotalThickEarned();
+        float M = myTree.getTotalMutationEarned();
+
+        // 最大の蓄積値を持つパラメタに応じて分岐
+        if (L >= T && L >= M) state.currentType = TYPE_ELEGANT;
+        else if (T >= L && T >= M) state.currentType = TYPE_STURDY;
+        else state.currentType = TYPE_ELDRITCH;
+
+        // 木に進化を適用
+        myTree.applyEvolution(state.currentType);
+
+        // 進化演出：パーティクル放出
+        spawn2DEffect(P_BLOOM);
+
+        ofLogNotice("Evolution") << "Tree evolved into Type: " << state.currentType;
+    }
+}
 
 void ofApp::keyReleased(int key) {}
 void ofApp::mouseMoved(int x, int y) {}

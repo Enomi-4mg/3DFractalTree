@@ -87,6 +87,27 @@ void Tree::kotodama(float buff) {
     totalMutationEarned += mutGain; // —İÏ‰ÁZ
 }
 
+void Tree::applyEvolution(GrowthType type) {
+    switch (type) {
+    case TYPE_ELEGANT:
+        s.branchLenRatio = 0.82f;   // ‚æ‚è’·‚­L‚Ñ‚é
+        s.baseAngle = 18.0f;        // ‰sŠp‚ÅƒXƒ}[ƒg‚ÈˆóÛ
+        s.twistFactor = 15.0f;      // T‚¦‚ß‚È‚Ë‚¶‚ê
+        break;
+    case TYPE_STURDY:
+        s.branchThickRatio = 0.85f; // ‘¾‚³‚ğˆÛ
+        s.baseAngle = 35.0f;        // ‚Ç‚Á‚µ‚è‚ÆL‚ª‚é
+        s.twistFactor = 40.0f;      // —Í‹­‚¢‚Ë‚¶‚ê
+        break;
+    case TYPE_ELDRITCH:
+        s.mutationAngleMax = 65.0f; // —\‘ª•s”\‚ÈL‚ª‚è
+        s.twistFactor = 150.0f;     // Œƒ‚µ‚¢—†ù
+        s.trunkHueEnd += 100.0f;    // FÊ•Ï‰»‚ğŠg‘å
+        break;
+    }
+    bNeedsUpdate = true; // ƒƒbƒVƒ…‚ğÄ\’z
+}
+
 glm::mat4 Tree::getNextBranchMatrix(glm::mat4 tipMat, int index, int total, float angleBase) {
     glm::mat4 m = tipMat;
     // Y²‰ñ“]‚Å‰~ó‚É”z’u
