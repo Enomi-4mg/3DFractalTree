@@ -15,6 +15,29 @@ void ofApp::setup() {
     }
     mainFont.load("verdana.ttf", 10, true, true);
 
+    // UI設定の読み込み
+    auto ui = config["ui"];
+    state.ui.labelWater = ui["labels"].value("water", "WATER");
+    state.ui.labelFertilizer = ui["labels"].value("fertilizer", "FERTILIZE");
+    state.ui.labelKotodama = ui["labels"].value("kotodama", "KOTODAMA");
+
+    auto btn = ui["button"];
+    state.ui.btnW = btn.value("width", 160.0f);
+    state.ui.btnH = btn.value("height", 50.0f);
+    state.ui.btnMargin = btn.value("margin", 20.0f);
+    state.ui.btnBottomOffset = btn.value("bottom_offset", 60.0f);
+
+    auto col = ui["colors"];
+    state.ui.colIdle.set(col["idle"][0], col["idle"][1], col["idle"][2], col["idle"][3]);
+    state.ui.colHover.set(col["hover"][0], col["hover"][1], col["hover"][2], col["hover"][3]);
+    state.ui.colActive.set(col["active"][0], col["active"][1], col["active"][2], col["active"][3]);
+    state.ui.colLocked.set(col["locked"][0], col["locked"][1], col["locked"][2], col["locked"][3]);
+    state.ui.colText.set(col["text"][0], col["text"][1], col["text"][2], col["text"][3]);
+
+    state.ui.cooldownDuration = ui.value("cooldown_time", 1.0f);
+    state.ui.statusTop = ui["status_pos"].value("top", 30.0f);
+    state.ui.statusRight = ui["status_pos"].value("right", 30.0f);
+
     // state構造体の初期化
     state.skillPoints = 3;
     state.maxDays = config["game"].value("max_days", 50);
@@ -53,6 +76,10 @@ void ofApp::setup() {
 
 //--------------------------------------------------------------
 void ofApp::update() {
+    if (state.actionCooldown > 0) {
+        state.actionCooldown -= ofGetLastFrameTime();
+        if (state.actionCooldown < 0) state.actionCooldown = 0;
+    }
     // 終了判定
     if (myTree.getDayCount() >= state.maxDays && !state.bGameEnded) {
         state.bGameEnded = true;
@@ -133,13 +160,6 @@ void ofApp::updateCamera() {
         cam.setPosition(targetPos);
         cam.lookAt(glm::vec3(0, lookAtY, 0));
     }
-
-/*    float rad = ofDegToRad(camAutoRotation);
-    glm::vec3 targetPos(sin(rad) * targetDist, lookAtY + 100, cos(rad) * targetDist);
-
-    cam.setTarget(glm::vec3(0, lookAtY, 0));
-    cam.setPosition(targetPos);
-    cam.lookAt(glm::vec3(0, lookAtY, 0))*/;
 }
 
 void ofApp::spawnBloomParticles() {
@@ -188,43 +208,94 @@ void ofApp::drawHUD() {
     ofPushMatrix();
     ofScale(scale, scale);
 
+    // 左上の日表示
     ofSetColor(0, 180);
-    ofDrawRectangle(15, 15, 300, 35);
+    ofDrawRectangle(15, 15, 200, 35);
     ofSetColor(255);
     mainFont.drawString("DAY: " + ofToString(myTree.getDayCount()) + " / " + ofToString(state.maxDays), 25, 40);
 
-    drawControlPanel();
-    drawStatusPanel();
-
-    if (state.bGameEnded) {
-        ofSetColor(255, 215, 0);
-        string msg = "EVOLUTION COMPLETE: " + state.finalTitle;
-        mainFont.drawString(msg, 512 - mainFont.stringWidth(msg) / 2, 384);
+    // スキルパネル（デバッグ表示がONの時のみ）
+    if (state.bShowDebug) {
+        drawControlPanel();
     }
-    ofPopMatrix();
+
+    ofPopMatrix(); // 一旦戻す（個別に座標計算するため）
+
+    drawStatusPanel();     // 右上へ
+    drawBottomActionBar(); // 下部中央へ
 }
 
 // ステータスパネル（プログレスバー）の描画
 void ofApp::drawStatusPanel() {
     float scale = getUIScale();
-    ofPushMatrix();
-    // 右下を起点に配置
     float pW = 320, pH = 180;
-    float margin = 20 * scale;;
-    // 画面比率に合わせて右下を起点に配置
-    ofTranslate(ofGetWidth() - (pW * scale) - margin, ofGetHeight() - (pH * scale) - margin);
+
+    ofPushMatrix();
+    // JSONの設定値に基づいて右上に配置
+    float tx = ofGetWidth() - (pW * scale) - (state.ui.statusRight * scale);
+    float ty = state.ui.statusTop * scale;
+    ofTranslate(tx, ty);
     ofScale(scale, scale);
+
     // 背景
     ofSetColor(0, 160);
     ofDrawRectRounded(0, 0, pW, pH, 10);
-    // 1. 深さ（レベル表示 + スムーズな経験値）
-    string lvStr = "Depth Level " + ofToString(myTree.getDepthLevel());
-    drawDualParamBar(lvStr, 25, 45, 270, visualDepthProgress, 0, ofColor(120, 255, 100));
-    // 2. 木の長さ
+
+    // パラメータバー描画（既存ロジックを流用）
+    drawDualParamBar("Depth Level " + ofToString(myTree.getDepthLevel()), 25, 45, 270, visualDepthProgress, 0, ofColor(120, 255, 100));
     drawDualParamBar("Total Length", 25, 95, 270, ofClamp(myTree.getLen() / 400.0f, 0, 1), 0, ofColor(100, 200, 255));
-    // 3. カオス度（現在と最大を一つのバーに統合）
-    // 背景(Memory)に最大値、前面(Current)に現在値を描画
     drawDualParamBar("Chaos (Cur / Max)", 25, 145, 270, myTree.getCurMutation(), myTree.getMaxMutation(), ofColor(255, 80, 150));
+    ofPopMatrix();
+}
+
+void ofApp::drawBottomActionBar() {
+    float scale = getUIScale();
+    float btnW = state.ui.btnW;
+    float btnH = state.ui.btnH;
+    float margin = state.ui.btnMargin;
+    int numBtns = 3;
+    float totalW = (btnW * numBtns) + (margin * (numBtns - 1));
+
+    ofPushMatrix();
+    ofTranslate(ofGetWidth() / 2 - (totalW * scale) / 2, ofGetHeight() - (state.ui.btnBottomOffset * scale) - (btnH * scale));
+    ofScale(scale, scale);
+
+    string labels[] = { state.ui.labelWater, state.ui.labelFertilizer, state.ui.labelKotodama };
+    CommandType types[] = { CMD_WATER, CMD_FERTILIZER, CMD_KOTODAMA };
+
+    hoveredButtonIndex = -1;
+    float mx = ofGetMouseX() / scale - (ofGetWidth() / 2 / scale - totalW / 2);
+    float my = ofGetMouseY() / scale - (ofGetHeight() / scale - state.ui.btnBottomOffset - btnH);
+
+    for (int i = 0; i < numBtns; i++) {
+        float bx = i * (btnW + margin);
+        bool isHovered = (mx >= bx && mx <= bx + btnW && my >= 0 && my <= btnH);
+
+        // 色の決定
+        ofColor bCol;
+        if (state.actionCooldown > 0) bCol = state.ui.colLocked;
+        else if (isHovered) {
+            bCol = state.ui.colHover;
+            hoveredButtonIndex = i;
+        }
+        else bCol = state.ui.colIdle;
+
+        // ボタン本体
+        ofSetColor(bCol);
+        ofDrawRectRounded(bx, 0, btnW, btnH, 5);
+
+        // テキスト
+        ofSetColor(state.ui.colText);
+        float tw = mainFont.stringWidth(labels[i]);
+        mainFont.drawString(labels[i], bx + (btnW - tw) / 2, btnH / 2 + 7);
+
+        // クールタイムゲージ（ボタンの下側に細く表示）
+        if (state.actionCooldown > 0) {
+            ofSetColor(state.ui.colActive);
+            float progress = state.actionCooldown / state.ui.cooldownDuration;
+            ofDrawRectangle(bx, btnH - 4, btnW * progress, 4);
+        }
+    }
     ofPopMatrix();
 }
 
@@ -396,6 +467,40 @@ void ofApp::spawn2DEffect(ParticleType type) {
     }
 }
 
+void ofApp::executeCommand(CommandType type) {
+    // クールタイム中、またはゲーム終了後は実行不可
+    if (state.actionCooldown > 0 || state.bGameEnded || state.bViewMode) return;
+
+    auto& g = config["game"];
+
+    switch (type) {
+    case CMD_WATER:
+        myTree.water(1.0, state.resilienceLevel, g.value("water_increment", 15.0f));
+        spawn2DEffect(P_WATER);
+        break;
+    case CMD_FERTILIZER:
+        myTree.fertilize(1.0, state.resilienceLevel, g.value("fertilize_increment", 8.0f));
+        spawn2DEffect(P_FERTILIZER);
+        break;
+    case CMD_KOTODAMA:
+        myTree.kotodama(1.0);
+        spawn2DEffect(P_KOTODAMA);
+        break;
+    }
+
+    // 共通の後処理
+    myTree.incrementDay();
+    checkEvolution();
+    if (myTree.getDayCount() % g.value("skill_interval", 5) == 0) {
+        state.skillPoints++;
+    }
+    weather.randomize();
+
+    // クールタイムの開始
+    state.actionCooldown = state.ui.cooldownDuration;
+}
+
+
 //--------------------------------------------------------------
 void ofApp::keyPressed(int key) {
     if (key == 'd' || key == 'D') state.bShowDebug = !state.bShowDebug;
@@ -450,21 +555,9 @@ void ofApp::processCommand(int key) {
     float threshold = 0.4f - (bloomCatalystLevel * 0.05f);
     bool wasBloomed = (myTree.getMaxMutation() > threshold);
 
-    if (key == '1') {
-        myTree.water(1.0, chaosResistLevel, g.value("water_increment", 15.0f));
-        spawn2DEffect(P_WATER);
-        actionTaken = true;
-    }
-    else if (key == '2') {
-        myTree.fertilize(1.0, chaosResistLevel, g.value("fertilize_increment", 8.0f));
-        spawn2DEffect(P_FERTILIZER);
-        actionTaken = true;
-    }
-    else if (key == '3') {
-        myTree.kotodama(1.0);
-        spawn2DEffect(P_KOTODAMA);
-        actionTaken = true;
-    }
+    if (key == '1') executeCommand(CMD_WATER);
+    if (key == '2') executeCommand(CMD_FERTILIZER);
+    if (key == '3') executeCommand(CMD_KOTODAMA);
 
     if (actionTaken) {
         myTree.incrementDay();
@@ -518,7 +611,14 @@ void ofApp::checkEvolution() {
 void ofApp::keyReleased(int key) {}
 void ofApp::mouseMoved(int x, int y) {}
 void ofApp::mouseDragged(int x, int y, int button) {}
-void ofApp::mousePressed(int x, int y, int button) {}
+
+void ofApp::mousePressed(int x, int y, int button) {
+    if (hoveredButtonIndex != -1) {
+        CommandType types[] = { CMD_WATER, CMD_FERTILIZER, CMD_KOTODAMA };
+        executeCommand(types[hoveredButtonIndex]);
+    }
+}
+
 void ofApp::mouseReleased(int x, int y, int button) {}
 void ofApp::mouseEntered(int x, int y) {}
 void ofApp::mouseExited(int x, int y) {}

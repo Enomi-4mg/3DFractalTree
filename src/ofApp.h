@@ -65,6 +65,10 @@ class ofApp : public ofBaseApp{
 		ofTrueTypeFont mainFont;
 		float getUIScale();
 		void drawDualParamBar(string label, float x, float y, float w, float currentRatio, float maxRatio, ofColor col);
+		// GUI
+		void executeCommand(CommandType type);
+		void drawBottomActionBar();
+		int hoveredButtonIndex = -1;
 
 		void updateCamera();
 		void processCommand(int key);
