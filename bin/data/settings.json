@@ -32,5 +32,30 @@
         "skill_interval": 5,
         "water_increment": 15.0,
         "fertilize_increment": 8.0
+    },
+    "ui": {
+        "labels": {
+            "water": "WATER",
+            "fertilizer": "FERTILIZE",
+            "kotodama": "KOTODAMA"
+        },
+        "button": {
+            "width": 160,
+            "height": 50,
+            "margin": 20,
+            "bottom_offset": 60
+        },
+        "colors": {
+            "idle": [60, 60, 70, 200],
+            "hover": [100, 100, 130, 255],
+            "active": [180, 180, 220, 255],
+            "locked": [40, 40, 40, 150],
+            "text": [255, 255, 255, 255]
+        },
+        "cooldown_time": 1.0,
+        "status_pos": {
+            "top": 30,
+            "right": 30
+        }
     }
 }
