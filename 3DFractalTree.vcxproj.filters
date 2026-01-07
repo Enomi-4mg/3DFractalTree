@@ -110,6 +110,9 @@
     <ClInclude Include="Weather.h">
       <Filter>src</Filter>
     </ClInclude>
+    <ClInclude Include="Constants.h">
+      <Filter>src</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="icon.rc" />

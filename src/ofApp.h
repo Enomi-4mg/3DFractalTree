@@ -79,9 +79,7 @@ class ofApp : public ofBaseApp{
 
 		// --- ƒVƒXƒeƒ€•Ï”‚Æİ’è ---
 		ofJson config;
-		int skillPoints = 3;
-		bool bGameEnded = false, bViewMode = false, bShowDebug = false;
-		string finalTitle = "";
+		GameState state;
 		float camAutoRotation = 0;
 		float visualDepthProgress = 0;
 

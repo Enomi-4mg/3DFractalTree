@@ -1,5 +1,6 @@
 #pragma once
 #include "ofMain.h"
+#include "Constants.h"
 
 class Tree {
 public:
@@ -20,7 +21,7 @@ public:
     float getCurMutation() { return bMutation; }
     float getDepthExp() { return depthExp; }
     int getDepthLevel() { return depthLevel; }
-    int getCurrentDepth() { return currentDepth; }
+    int getCurrentDepth();
     int getDayCount() { return dayCount; }
     int getSeed() { return seed; }
     float getDepthProgress();
@@ -50,11 +51,12 @@ private:
     bool bNeedsUpdate = true;
 
     // --- JSONíËêî ---
-    int maxDepthConfig, currentDepth = 0;
+    TreeSettings s;
+    /*int maxDepthConfig, currentDepth = 0;
     float depthExpBase, depthExpPower;
     float lengthVisualScale, thickVisualScale;
     float branchLenRatio, branchThickRatio;
     float baseAngle, mutationAngleMax;
     float trunkHueStart, trunkHueEnd;
-    ofColor leafColor, flowerColor;
+    ofColor leafColor, flowerColor;*/
 };

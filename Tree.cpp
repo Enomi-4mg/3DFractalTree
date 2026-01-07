@@ -1,60 +1,39 @@
 #include "Tree.h"
 void Tree::setup(const ofJson& config) {
     seed = ofRandom(99999);
-    auto treeConf = config.contains("tree") ? config["tree"] : ofJson::object();
-    // JSONから定数を取得
-    maxDepthConfig = treeConf.value("max_depth", 6);
-    depthExpBase = treeConf.value("depth_exp_base", 30.0f);
-    depthExpPower = treeConf.value("depth_exp_power", 1.6f);
-    lengthVisualScale = treeConf.value("length_visual_scale", 1.5f);
-    thickVisualScale = treeConf.value("thickness_visual_scale", 0.8f);
-    branchLenRatio = treeConf.value("branch_length_ratio", 0.75f);
-    branchThickRatio = treeConf.value("branch_thick_ratio", 0.7f);
-    baseAngle = treeConf.value("base_angle", 25.0f);
-    mutationAngleMax = treeConf.value("mutation_angle_max", 45.0f);
+    auto t = config["tree"];
+    s.maxDepth = t.value("max_depth", 6);
+    s.expBase = t.value("depth_exp_base", 30.0f);
+    s.expPower = t.value("depth_exp_power", 1.6f);
+    s.lenScale = t.value("length_visual_scale", 1.5f);
+    s.thickScale = t.value("thickness_visual_scale", 0.8f);
+    s.branchLenRatio = t.value("branch_length_ratio", 0.75f);
+    s.branchThickRatio = t.value("branch_thick_ratio", 0.7f);
+    s.baseAngle = t.value("base_angle", 25.0f);
+    s.mutationAngleMax = t.value("mutation_angle_max", 45.0f);
 
-    auto colorConf = treeConf.contains("colors") ? treeConf["colors"] : ofJson::object();
-    trunkHueStart = colorConf.value("trunk_hue_start", 20.0f);
-    trunkHueEnd = colorConf.value("trunk_hue_end", 160.0f);
-
-    if (colorConf.contains("leaf") && colorConf["leaf"].is_array()) {
-        leafColor = ofColor(colorConf["leaf"][0], colorConf["leaf"][1], colorConf["leaf"][2], colorConf["leaf"][3]);
-    }
-    else {
-        leafColor = ofColor(60, 150, 60, 200);
-    }
+    auto c = t["colors"];
+    s.trunkHueStart = c.value("trunk_hue_start", 20.0f);
+    s.trunkHueEnd = c.value("trunk_hue_end", 160.0f);
+    s.leafColor = ofColor(c["leaf"][0], c["leaf"][1], c["leaf"][2], c["leaf"][3]);
 }
 
 void Tree::update(int growthLevel, int chaosResist, int bloomLevel) {
-    // 1. Exp(実際のパラメータ)の補間
-    float prevLen = bLen;
-    float prevThick = bThick;
+    // 補間ロジックは維持
     bLen = ofLerp(bLen, tLen, 0.1f);
     bThick = ofLerp(bThick, tThick, 0.1f);
     bMutation = ofLerp(bMutation, tMutation, 0.1f);
-    
-    if (bMutation > maxMutationReached) maxMutationReached = bMutation;
 
-    // 深さ計算
-    if (depthLevel < maxDepthConfig && depthExp >= getExpForDepth(depthLevel + 1)) {
+    if (depthLevel < s.maxDepth && depthExp >= getExpForDepth(depthLevel + 1)) {
         depthLevel++;
         bNeedsUpdate = true;
     }
-    currentDepth = depthLevel;
-    // 数値が動いている、または深さが変わった時にメッシュ更新
-    if (abs(bLen - prevLen) > 0.01f || abs(bThick - prevThick) > 0.01f || maxMutationReached > 0.95f) {
-        currentDepth = depthLevel;
-        bNeedsUpdate = true;
-    }
 
-    // アニメーション（色彩やノイズ）のために毎フレームフラグを立てることも検討
-    if (maxMutationReached > 0.95f) bNeedsUpdate = true;
-
-    if (bNeedsUpdate) {
+    if (bNeedsUpdate || abs(bLen - tLen) > 0.5f || abs(bThick - tThick) > 0.1f) {
         vboMesh.clear();
-        vboMesh.setMode(OF_PRIMITIVE_TRIANGLES);
         ofSetRandomSeed(seed);
-        buildBranchMesh(bLen * lengthVisualScale, bThick * thickVisualScale, currentDepth, glm::mat4(1.0), chaosResist, bloomLevel);
+        // 構造体 s を経由して描画パラメータを渡す
+        buildBranchMesh(bLen * s.lenScale, bThick * s.thickScale, depthLevel, glm::mat4(1.0), chaosResist, bloomLevel);
         bNeedsUpdate = false;
     }
 }
@@ -98,7 +77,7 @@ void Tree::buildBranchMesh(float length, float thickness, int depth, glm::mat4 m
     if (depth < 0) return;
 
     // 現在の枝（幹）をメッシュに追加
-    addStemToMesh(thickness, thickness * branchThickRatio, length, mat, chaosResist, depth);
+    addStemToMesh(thickness, thickness * s.branchThickRatio, length, mat, chaosResist, depth);
 
     // 枝の先端の行列を計算
     glm::mat4 tipMat = glm::translate(mat, glm::vec3(0, length, 0));
@@ -121,7 +100,7 @@ void Tree::buildBranchMesh(float length, float thickness, int depth, glm::mat4 m
 
     for (int i = 0; i < numBranches; i++) {
         glm::mat4 childMat = getNextBranchMatrix(tipMat, i, numBranches, angleBase);
-        buildBranchMesh(length * 0.75f, thickness * 0.7f, depth - 1, childMat, chaosResist, bloomLevel);
+        buildBranchMesh(length * s.branchLenRatio, thickness * s.branchThickRatio, depth - 1, childMat, chaosResist, bloomLevel);
     }
 }
 
@@ -129,7 +108,7 @@ void Tree::addStemToMesh(float r1, float r2, float h, glm::mat4 mat, int chaosRe
     int segments = (depth <= 4) ? 3 : 5;
 
     float timeShift = ofGetElapsedTimef() * 20.0f;
-    float hueBase = ofMap(bMutation, 0, 1, trunkHueStart, trunkHueEnd);
+    float hueBase = ofMap(bMutation, 0, 1, s.trunkHueStart, s.trunkHueEnd);
     float finalHue = fmod(hueBase + timeShift + (depth * 10), 255.0f);
     ofColor col = ofColor::fromHsb(finalHue, 160, 180 + (depth * 10));
     
@@ -166,7 +145,7 @@ void Tree::addStemToMesh(float r1, float r2, float h, glm::mat4 mat, int chaosRe
 
 float Tree::getExpForDepth(int d) {
     if (d <= 0) return 0;
-    return depthExpBase * pow((float)d, depthExpPower);
+    return s.expBase * pow((float)d, s.expPower);
 }
 
 float Tree::getDepthProgress() {
@@ -251,4 +230,8 @@ void Tree::reset() {
     seed = ofRandom(99999);
     vboMesh.clear();
     bNeedsUpdate = true;
+}
+
+int Tree::getCurrentDepth() {
+    return depthLevel;
 }

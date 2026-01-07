@@ -47,27 +47,81 @@ bin/data/.gitkeep
 bin/data/settings.json
 bin/data/settings.xml
 config.make
+Constants.h
 Ground.h
 icon.rc
 ofApp.cpp
 Particle.h
+README.md
 src/main.cpp
 src/ofApp.cpp
 src/ofApp.h
 Tree.cpp
 Tree.h
 Weather.h
-仕様書・開発計画書.md
 </directory_structure>
 
 <files>
 This section contains the contents of the repository's files.
 
+<file path="Constants.h">
+// Constants.h
+#pragma once
+#include "ofMain.h"
+
+struct TreeSettings {
+    int maxDepth;
+    float expBase, expPower;
+    float lenScale, thickScale;
+    float branchLenRatio, branchThickRatio;
+    float baseAngle, mutationAngleMax;
+    float trunkHueStart, trunkHueEnd;
+    ofColor leafColor, flowerColor;
+};
+
+struct GameState {
+    int dayCount = 1;
+    int skillPoints = 3;
+    bool bGameEnded = false;
+    bool bViewMode = false;
+    bool bShowDebug = false;
+    string finalTitle = "";
+    int maxDays = 50;
+};
+</file>
+
+<file path="addons.make">
+ofxGui
+</file>
+
+<file path="bin/data/.gitkeep">
+
+</file>
+
 <file path="bin/data/settings.xml">
 <?xml version="1.0"?>
 </file>
 
-<file path="仕様書・開発計画書.md">
+<file path="config.make">
+
+</file>
+
+<file path="icon.rc">
+// Icon Resource Definition
+#define MAIN_ICON                       102
+
+#if defined(_DEBUG)
+MAIN_ICON               ICON                    "icon_debug.ico"
+#else
+MAIN_ICON               ICON                    "icon.ico"
+#endif
+</file>
+
+<file path="ofApp.cpp">
+
+</file>
+
+<file path="README.md">
 # **3Dフラクタル成長シミュレーター 開発計画書 Ver.8.5**
 
 ## **1\. プロジェクト概要**
@@ -145,6 +199,26 @@ C++およびopenFrameworksを用いた、フラクタル構造の動的生成お
 * **UI改善**: スキルツリーの視覚化およびインタラクションの強化。
 </file>
 
+<file path="src/main.cpp">
+#include "ofMain.h"
+#include "ofApp.h"
+
+//========================================================================
+int main( ){
+
+	//Use ofGLFWWindowSettings for more options like multi-monitor fullscreen
+	ofGLWindowSettings settings;
+	settings.setSize(1024, 768);
+	settings.windowMode = OF_WINDOW; //can also be OF_FULLSCREEN
+
+	auto window = ofCreateWindow(settings);
+
+	ofRunApp(window, std::make_shared<ofApp>());
+	ofRunMainLoop();
+
+}
+</file>
+
 <file path=".gitignore">
 /bin/*
 !/bin/data/
@@ -154,14 +228,6 @@ C++およびopenFrameworksを用いた、フラクタル構造の動的生成お
 *.vcxproj
 *.user
 Verdana.ttf
-</file>
-
-<file path="addons.make">
-ofxGui
-</file>
-
-<file path="bin/data/.gitkeep">
-
 </file>
 
 <file path="bin/data/settings.json">
@@ -203,25 +269,6 @@ ofxGui
 }
 </file>
 
-<file path="config.make">
-
-</file>
-
-<file path="icon.rc">
-// Icon Resource Definition
-#define MAIN_ICON                       102
-
-#if defined(_DEBUG)
-MAIN_ICON               ICON                    "icon_debug.ico"
-#else
-MAIN_ICON               ICON                    "icon.ico"
-#endif
-</file>
-
-<file path="ofApp.cpp">
-
-</file>
-
 <file path="Particle.h">
 #pragma once
 #include "ofMain.h"
@@ -252,26 +299,6 @@ public:
         ofDrawSphere(pos, 2.0f * life);
     }
 };
-</file>
-
-<file path="src/main.cpp">
-#include "ofMain.h"
-#include "ofApp.h"
-
-//========================================================================
-int main( ){
-
-	//Use ofGLFWWindowSettings for more options like multi-monitor fullscreen
-	ofGLWindowSettings settings;
-	settings.setSize(1024, 768);
-	settings.windowMode = OF_WINDOW; //can also be OF_FULLSCREEN
-
-	auto window = ofCreateWindow(settings);
-
-	ofRunApp(window, std::make_shared<ofApp>());
-	ofRunMainLoop();
-
-}
 </file>
 
 <file path="3DFractalTree.vcxproj.filters">
@@ -387,6 +414,9 @@ int main( ){
     <ClInclude Include="Weather.h">
       <Filter>src</Filter>
     </ClInclude>
+    <ClInclude Include="Constants.h">
+      <Filter>src</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="icon.rc" />
@@ -477,12 +507,19 @@ void ofApp::setup() {
     config = ofLoadJson("settings.json");
     if (config.empty()) {
         ofLogError("ofApp") << "settings.json not found! Using hardcoded defaults.";
-        // 必要最小限の構造をメモリ上に作成
         config["game"]["water_increment"] = 15.0;
         config["game"]["fertilize_increment"] = 8.0;
         config["camera"]["height_factor"] = 3.5;
     }
     mainFont.load("verdana.ttf", 10, true, true);
+
+    // state構造体の初期化
+    state.skillPoints = 3;
+    state.maxDays = config["game"].value("max_days", 50);
+    state.bGameEnded = false;
+    state.bViewMode = false;
+    state.bShowDebug = false;
+
     myTree.setup(config);
     weather.setup();
     ground.setup();
@@ -493,9 +530,9 @@ void ofApp::setup() {
     gui.add(chaosResistLevel.set("Chaos Resistance", 0, 0, 5));
     gui.add(bloomCatalystLevel.set("Bloom Catalyst", 0, 0, 5));
 
-    btnGrowth.setup("Upgrade Growth (1pt)");
-    btnResist.setup("Upgrade Resistance (1pt)");
-    btnCatalyst.setup("Upgrade Bloom (1pt)");
+    gui.add(btnGrowth.setup("Upgrade Growth (1pt)"));
+    gui.add(btnResist.setup("Upgrade Resistance (1pt)"));
+    gui.add(btnCatalyst.setup("Upgrade Bloom (1pt)"));
 
     btnGrowth.addListener(this, &ofApp::upgradeGrowth);
     btnResist.addListener(this, &ofApp::upgradeResist);
@@ -515,65 +552,62 @@ void ofApp::setup() {
 //--------------------------------------------------------------
 void ofApp::update() {
     // 終了判定
-    int maxDays = config["game"].value("max_days", 50);
-    if (myTree.getDayCount() >= maxDays && !bGameEnded) {
-        bGameEnded = true;
-        // 称号決定（将来的にメソッド化も検討）
-        if (myTree.getLen() > 200 && myTree.getMaxMutation() < 0.3) finalTitle = "Elegant Giant";
-        else if (myTree.getMaxMutation() > 0.8) finalTitle = "Herald of Chaos";
-        else finalTitle = "Great Spirit Tree";
+    if (myTree.getDayCount() >= state.maxDays && !state.bGameEnded) {
+        state.bGameEnded = true;
+        // 称号決定
+        if (myTree.getLen() > 200 && myTree.getMaxMutation() < 0.3) state.finalTitle = "Elegant Giant";
+        else if (myTree.getMaxMutation() > 0.8) state.finalTitle = "Herald of Chaos";
+        else state.finalTitle = "Great Spirit Tree";
     }
 
     myTree.update(growthLevel, chaosResistLevel, bloomCatalystLevel);
     weather.update();
+
     updateCamera();
+
     visualDepthProgress = ofLerp(visualDepthProgress, myTree.getDepthProgress(), 0.1f);
 
-    // 3Dパーティクルの更新
+    // パーティクル更新
     for (auto& p : particles) p.update();
     ofRemove(particles, [](Particle& p) { return p.life <= 0; });
-
-    // 2Dパーティクルの更新
     for (auto& p : particles2D) p.update();
     ofRemove(particles2D, [](Particle2D& p) { return p.life <= 0; });
-
-    // 雨の波紋（自動生成）
     if (weather.state == RAINY && ofGetFrameNum() % 3 == 0) {
         spawn2DEffect(P_RAIN_SPLASH);
     }
 
-    if (bGameEnded && !bViewMode) {
-        // 【修正】終了時のカメラ：水平視点かつ木のサイズに合わせた距離
-        camAutoRotation += 0.3f;
-        float centerHeight = myTree.getLen() * 1.5f; // 木の中心
-        float targetDist = myTree.getLen() * 5.0f;   // 木のサイズに合わせた距離
+    //if (bGameEnded && !bViewMode) {
+    //    // 【修正】終了時のカメラ：水平視点かつ木のサイズに合わせた距離
+    //    camAutoRotation += 0.3f;
+    //    float centerHeight = myTree.getLen() * 1.5f; // 木の中心
+    //    float targetDist = myTree.getLen() * 5.0f;   // 木のサイズに合わせた距離
 
-        float rad = ofDegToRad(camAutoRotation);
-        // y座標を centerHeight と同じにすることで水平を保つ
-        cam.setPosition(sin(rad) * targetDist, centerHeight, cos(rad) * targetDist);
-        cam.lookAt(glm::vec3(0, centerHeight, 0));
-    }
-    else if (!bViewMode) {
-        // --- カメラの自動ズームと回転 ---
-        float currentTreeHeight = myTree.getLen() * 3.5f;
-        float targetDistance = max(600.0f, currentTreeHeight * 1.5f);
-        float lerpedDistance = ofLerp(cam.getDistance(), targetDistance, 0.05f);
-        cam.setDistance(lerpedDistance);
+    //    float rad = ofDegToRad(camAutoRotation);
+    //    // y座標を centerHeight と同じにすることで水平を保つ
+    //    cam.setPosition(sin(rad) * targetDist, centerHeight, cos(rad) * targetDist);
+    //    cam.lookAt(glm::vec3(0, centerHeight, 0));
+    //}
+    //else if (!bViewMode) {
+    //    // --- カメラの自動ズームと回転 ---
+    //    float currentTreeHeight = myTree.getLen() * 3.5f;
+    //    float targetDistance = max(600.0f, currentTreeHeight * 1.5f);
+    //    float lerpedDistance = ofLerp(cam.getDistance(), targetDistance, 0.05f);
+    //    cam.setDistance(lerpedDistance);
 
-        // 中心（高さの40%付近）を見つめる
-        ofVec3f newTarget(0, currentTreeHeight * 0.4f, 0);
+    //    // 中心（高さの40%付近）を見つめる
+    //    ofVec3f newTarget(0, currentTreeHeight * 0.4f, 0);
 
-        ofVec3f currentTarget = cam.getTarget().getPosition();
-        ofVec3f lerpedTarget = currentTarget.getInterpolated(newTarget, 0.05f);
-        cam.setTarget(lerpedTarget);
+    //    ofVec3f currentTarget = cam.getTarget().getPosition();
+    //    ofVec3f lerpedTarget = currentTarget.getInterpolated(newTarget, 0.05f);
+    //    cam.setTarget(lerpedTarget);
 
-        // 毎フレーム少しずつ回転角を増やす
-        camAutoRotation += 0.2f;
-        // カメラの位置を円周上で計算して更新
-        float rad = ofDegToRad(camAutoRotation);
-        cam.setPosition(sin(rad) * lerpedDistance, newTarget.y, cos(rad) * lerpedDistance);
-        cam.lookAt(newTarget);
-    }
+    //    // 毎フレーム少しずつ回転角を増やす
+    //    camAutoRotation += 0.2f;
+    //    // カメラの位置を円周上で計算して更新
+    //    float rad = ofDegToRad(camAutoRotation);
+    //    cam.setPosition(sin(rad) * lerpedDistance, newTarget.y, cos(rad) * lerpedDistance);
+    //    cam.lookAt(newTarget);
+    //}
 }
 
 //--------------------------------------------------------------
@@ -596,105 +630,47 @@ void ofApp::draw() {
 
     for (auto& p : particles2D) p.draw();
     weather.draw2D();
-    if (bViewMode) {
-        drawViewModeOverlay();
+
+    if (state.bViewMode) drawViewModeOverlay();
+    else drawHUD();
+
+    if (state.bShowDebug) drawDebugOverlay();
+}
+void ofApp::updateCamera() {
+    if (state.bViewMode) return;
+
+    float hFactor = config["camera"].value("height_factor", 3.5f);
+    float treeH = myTree.getLen() * hFactor;
+    float targetDist, lookAtY;
+
+    if (state.bGameEnded) {
+        camAutoRotation += 0.4f;
+        targetDist = myTree.getLen() * 5.0f;
+        lookAtY = treeH * 0.4f;
+
+        float rad = ofDegToRad(camAutoRotation);
+        cam.setPosition(sin(rad) * targetDist, lookAtY + 50, cos(rad) * targetDist);
+        cam.lookAt(glm::vec3(0, lookAtY, 0));
     }
     else {
-        drawHUD();
+        camAutoRotation += 0.2f;
+        targetDist = max(600.0f, treeH * 1.5f);
+        lookAtY = treeH * 0.4f;
+
+        float rad = ofDegToRad(camAutoRotation);
+        glm::vec3 targetPos(sin(rad) * targetDist, lookAtY + 100, cos(rad) * targetDist);
+
+        cam.setTarget(glm::vec3(0, lookAtY, 0));
+        cam.setPosition(targetPos);
+        cam.lookAt(glm::vec3(0, lookAtY, 0));
     }
 
-    if (bShowDebug) drawDebugOverlay();
-}
+/*    float rad = ofDegToRad(camAutoRotation);
+    glm::vec3 targetPos(sin(rad) * targetDist, lookAtY + 100, cos(rad) * targetDist);
 
-//--------------------------------------------------------------
-void ofApp::keyPressed(int key) {
-    if (key == 'd' || key == 'D') bShowDebug = !bShowDebug;
-    if (bShowDebug && key == '+') {
-        myTree.water(5.0, 0, 50.0);
-        myTree.fertilize(5.0, 50.0);
-    }
-    if (key == 'w' || key == 'W') weather.randomize();
-    if (key == 'r' || key == 'R') {
-        myTree.reset();
-        particles.clear();
-        particles2D.clear();
-        skillPoints = 3;
-        growthLevel = 0;
-        chaosResistLevel = 0;
-        bloomCatalystLevel = 0;
-        bGameEnded = false;
-    }
-    if (key == 'v' || key == 'V') {
-        bViewMode = !bViewMode;
-        bViewMode ? cam.enableMouseInput() : cam.disableMouseInput();
-    }
-    processCommand(key);
-}
-
-void ofApp::processCommand(int key) {
-    int maxDays = config["game"].value("max_days", 50);
-    int skillInterval = config["game"].value("skill_interval", 5);
-
-    if (bViewMode || myTree.getDayCount() >= maxDays) return;
-
-    float dayBoost = ofMap(myTree.getDayCount(), 1, 30, 1.0f, 2.5f, true);
-    float weatherBonus = 1.0f;
-    bool actionTaken = false;
-
-    auto& g = config["game"];
-    // 開花判定用しきい値
-    float threshold = 0.4f - (bloomCatalystLevel * 0.05f);
-    bool wasBloomed = (myTree.getMaxMutation() > threshold);
-
-    if (key == '1') {
-        if (weather.state == SUNNY) weatherBonus = weather.getGrowthBuff();
-        myTree.water(1.0, growthLevel, g.value("water_increment", 15.0f));
-        spawn2DEffect(P_WATER);
-        actionTaken = true;
-    }
-    else if (key == '2') {
-        if (weather.state == RAINY) weatherBonus = weather.getGrowthBuff();
-        myTree.fertilize(1.0, g.value("fertilize_increment", 8.0f));
-        spawn2DEffect(P_FERTILIZER);
-        actionTaken = true;
-    }
-    else if (key == '3') {
-        if (weather.state == MOONLIGHT) weatherBonus = weather.getGrowthBuff();
-        myTree.kotodama(dayBoost * weatherBonus);
-        spawn2DEffect(P_KOTODAMA);
-        if (myTree.getMaxMutation() > 0.5f) spawn2DEffect(P_BLOOM);
-        actionTaken = true;
-    }
-
-    if (actionTaken) {
-        myTree.incrementDay();
-        if (myTree.getDayCount() % skillInterval == 0) skillPoints++;
-
-        // 実行後に開花しきい値を超えたならエフェクト
-        if (!wasBloomed && myTree.getMaxMutation() > threshold) spawnBloomParticles();
-        weather.randomize();
-    }
-}
-
-//--------------------------------------------------------------
-void ofApp::updateCamera() {
-    if (bViewMode) return;
-    auto& c = config["camera"];
-    float hFactor = c.value("height_factor", 3.5f);
-    float currentTreeHeight = myTree.getLen() * hFactor;
-    float targetDistance = max((float)c.value("min_distance", 600.0f), currentTreeHeight * 1.5f);
-
-    cam.setDistance(ofLerp(cam.getDistance(), targetDistance, c.value("lerp_speed", 0.05f)));
-
-    ofVec3f targetLookAt(0, currentTreeHeight * 0.4f, 0);
-    ofVec3f currentTarget = cam.getTarget().getPosition();
-    ofVec3f lerpedTarget = currentTarget.getInterpolated(targetLookAt, 0.05f);
-    cam.setTarget(lerpedTarget);
-
-    camAutoRotation += (float)c.value("rotation_speed", 0.2f);
-    float rad = ofDegToRad(camAutoRotation);
-    cam.setPosition(sin(rad) * cam.getDistance(), targetLookAt.y, cos(rad) * cam.getDistance());
-    cam.lookAt(targetLookAt);
+    cam.setTarget(glm::vec3(0, lookAtY, 0));
+    cam.setPosition(targetPos);
+    cam.lookAt(glm::vec3(0, lookAtY, 0))*/;
 }
 
 void ofApp::spawnBloomParticles() {
@@ -740,57 +716,46 @@ float ofApp::getUIScale() {
 
 void ofApp::drawHUD() {
     float scale = getUIScale();
-
-    // --- 上部：日数と天候 ---
-    ofPushStyle();
-
-    string info = "DAY: " + ofToString(myTree.getDayCount()) + " / 50 | WEATHER: " + weather.getName();
-    float infoW = mainFont.stringWidth(info) + 20;
-    ofSetColor(0, 180);
-    ofDrawRectangle(15 * scale, 15 * scale, infoW * scale, 30 * scale);
-    ofSetColor(255);
     ofPushMatrix();
-	ofScale(scale, scale);
-    mainFont.drawString(info, 25, 35);
-    ofPopMatrix();
-    ofPopStyle();
+    ofScale(scale, scale);
+
+    ofSetColor(0, 180);
+    ofDrawRectangle(15, 15, 300, 35);
+    ofSetColor(255);
+    mainFont.drawString("DAY: " + ofToString(myTree.getDayCount()) + " / " + ofToString(state.maxDays), 25, 40);
 
     drawControlPanel();
     drawStatusPanel();
 
-    if (bGameEnded) {
+    if (state.bGameEnded) {
         ofSetColor(255, 215, 0);
-        string endMsg = "GROWTH COMPLETED: [" + finalTitle + "]";
-        mainFont.drawString(endMsg, ofGetWidth() / 2 - mainFont.stringWidth(endMsg) / 2 * scale, ofGetHeight() / 2);
+        string msg = "EVOLUTION COMPLETE: " + state.finalTitle;
+        mainFont.drawString(msg, 512 - mainFont.stringWidth(msg) / 2, 384);
     }
+    ofPopMatrix();
 }
 
 // ステータスパネル（プログレスバー）の描画
 void ofApp::drawStatusPanel() {
     float scale = getUIScale();
     ofPushMatrix();
-
     // 右下を起点に配置
     float pW = 320, pH = 180;
     float margin = 20 * scale;;
     // 画面比率に合わせて右下を起点に配置
     ofTranslate(ofGetWidth() - (pW * scale) - margin, ofGetHeight() - (pH * scale) - margin);
     ofScale(scale, scale);
-	// 背景
+    // 背景
     ofSetColor(0, 160);
     ofDrawRectRounded(0, 0, pW, pH, 10);
-
     // 1. 深さ（レベル表示 + スムーズな経験値）
     string lvStr = "Depth Level " + ofToString(myTree.getDepthLevel());
     drawDualParamBar(lvStr, 25, 45, 270, visualDepthProgress, 0, ofColor(120, 255, 100));
-
     // 2. 木の長さ
     drawDualParamBar("Total Length", 25, 95, 270, ofClamp(myTree.getLen() / 400.0f, 0, 1), 0, ofColor(100, 200, 255));
-
     // 3. カオス度（現在と最大を一つのバーに統合）
     // 背景(Memory)に最大値、前面(Current)に現在値を描画
     drawDualParamBar("Chaos (Cur / Max)", 25, 145, 270, myTree.getCurMutation(), myTree.getMaxMutation(), ofColor(255, 80, 150));
-
     ofPopMatrix();
 }
 
@@ -962,11 +927,72 @@ void ofApp::spawn2DEffect(ParticleType type) {
     }
 }
 
-// --- スキル処理の実装 ---
-void ofApp::upgradeGrowth() { if (skillPoints > 0 && growthLevel < 5) { growthLevel++; skillPoints--; } }
-void ofApp::upgradeResist() { if (skillPoints > 0 && chaosResistLevel < 5) { chaosResistLevel++; skillPoints--; } }
-void ofApp::upgradeCatalyst() { if (skillPoints > 0 && bloomCatalystLevel < 5) { bloomCatalystLevel++; skillPoints--; } }
+//--------------------------------------------------------------
+void ofApp::keyPressed(int key) {
+    if (key == 'd' || key == 'D') state.bShowDebug = !state.bShowDebug;
+    if (key == 'w' || key == 'W') weather.randomize();
+    if (key == 'v' || key == 'V') {
+        state.bViewMode = !state.bViewMode;
+        state.bViewMode ? cam.enableMouseInput() : cam.disableMouseInput();
+    }
+    if (state.bShowDebug && key == '+') {
+        myTree.water(5.0, 0, 50.0);
+        myTree.fertilize(5.0, 50.0);
+    }
+    if (key == 'r' || key == 'R') {
+        myTree.reset();
+        particles.clear();
+        particles2D.clear();
+        state.skillPoints = 3;
+        growthLevel = 0;
+        chaosResistLevel = 0;
+        bloomCatalystLevel = 0;
+        state.bGameEnded = false;
+    }
+    processCommand(key);
+}
 
+void ofApp::processCommand(int key) {
+    if (state.bViewMode || myTree.getDayCount() >= state.maxDays) return;
+
+    bool actionTaken = false;
+    auto& g = config["game"];
+
+    // 開花判定用しきい値
+    float threshold = 0.4f - (bloomCatalystLevel * 0.05f);
+    bool wasBloomed = (myTree.getMaxMutation() > threshold);
+
+    if (key == '1') {
+        myTree.water(1.0, growthLevel, g.value("water_increment", 15.0f));
+        spawn2DEffect(P_WATER);
+        actionTaken = true;
+    }
+    else if (key == '2') {
+        myTree.fertilize(1.0, g.value("fertilize_increment", 8.0f));
+        spawn2DEffect(P_FERTILIZER);
+        actionTaken = true;
+    }
+    else if (key == '3') {
+        myTree.kotodama(1.0);
+        spawn2DEffect(P_KOTODAMA);
+        actionTaken = true;
+    }
+
+    if (actionTaken) {
+        myTree.incrementDay();
+        if (myTree.getDayCount() % config["game"].value("skill_interval", 5) == 0) {
+            state.skillPoints++;
+        }
+        weather.randomize();
+    }
+}
+
+//--------------------------------------------------------------
+
+// --- スキル処理 ---
+void ofApp::upgradeGrowth() { if (state.skillPoints > 0 && growthLevel < 5) { growthLevel++; state.skillPoints--; } }
+void ofApp::upgradeResist() { if (state.skillPoints > 0 && chaosResistLevel < 5) { chaosResistLevel++; state.skillPoints--; } }
+void ofApp::upgradeCatalyst() { if (state.skillPoints > 0 && bloomCatalystLevel < 5) { bloomCatalystLevel++; state.skillPoints--; } }
 
 void ofApp::keyReleased(int key) {}
 void ofApp::mouseMoved(int x, int y) {}
@@ -1062,9 +1088,7 @@ class ofApp : public ofBaseApp{
 
 		// --- システム変数と設定 ---
 		ofJson config;
-		int skillPoints = 3;
-		bool bGameEnded = false, bViewMode = false, bShowDebug = false;
-		string finalTitle = "";
+		GameState state;
 		float camAutoRotation = 0;
 		float visualDepthProgress = 0;
 
@@ -1088,60 +1112,39 @@ class ofApp : public ofBaseApp{
 #include "Tree.h"
 void Tree::setup(const ofJson& config) {
     seed = ofRandom(99999);
-    auto treeConf = config.contains("tree") ? config["tree"] : ofJson::object();
-    // JSONから定数を取得
-    maxDepthConfig = treeConf.value("max_depth", 6);
-    depthExpBase = treeConf.value("depth_exp_base", 30.0f);
-    depthExpPower = treeConf.value("depth_exp_power", 1.6f);
-    lengthVisualScale = treeConf.value("length_visual_scale", 1.5f);
-    thickVisualScale = treeConf.value("thickness_visual_scale", 0.8f);
-    branchLenRatio = treeConf.value("branch_length_ratio", 0.75f);
-    branchThickRatio = treeConf.value("branch_thick_ratio", 0.7f);
-    baseAngle = treeConf.value("base_angle", 25.0f);
-    mutationAngleMax = treeConf.value("mutation_angle_max", 45.0f);
+    auto t = config["tree"];
+    s.maxDepth = t.value("max_depth", 6);
+    s.expBase = t.value("depth_exp_base", 30.0f);
+    s.expPower = t.value("depth_exp_power", 1.6f);
+    s.lenScale = t.value("length_visual_scale", 1.5f);
+    s.thickScale = t.value("thickness_visual_scale", 0.8f);
+    s.branchLenRatio = t.value("branch_length_ratio", 0.75f);
+    s.branchThickRatio = t.value("branch_thick_ratio", 0.7f);
+    s.baseAngle = t.value("base_angle", 25.0f);
+    s.mutationAngleMax = t.value("mutation_angle_max", 45.0f);
 
-    auto colorConf = treeConf.contains("colors") ? treeConf["colors"] : ofJson::object();
-    trunkHueStart = colorConf.value("trunk_hue_start", 20.0f);
-    trunkHueEnd = colorConf.value("trunk_hue_end", 160.0f);
-
-    if (colorConf.contains("leaf") && colorConf["leaf"].is_array()) {
-        leafColor = ofColor(colorConf["leaf"][0], colorConf["leaf"][1], colorConf["leaf"][2], colorConf["leaf"][3]);
-    }
-    else {
-        leafColor = ofColor(60, 150, 60, 200);
-    }
+    auto c = t["colors"];
+    s.trunkHueStart = c.value("trunk_hue_start", 20.0f);
+    s.trunkHueEnd = c.value("trunk_hue_end", 160.0f);
+    s.leafColor = ofColor(c["leaf"][0], c["leaf"][1], c["leaf"][2], c["leaf"][3]);
 }
 
 void Tree::update(int growthLevel, int chaosResist, int bloomLevel) {
-    // 1. Exp(実際のパラメータ)の補間
-    float prevLen = bLen;
-    float prevThick = bThick;
+    // 補間ロジックは維持
     bLen = ofLerp(bLen, tLen, 0.1f);
     bThick = ofLerp(bThick, tThick, 0.1f);
     bMutation = ofLerp(bMutation, tMutation, 0.1f);
-    
-    if (bMutation > maxMutationReached) maxMutationReached = bMutation;
 
-    // 深さ計算
-    if (depthLevel < maxDepthConfig && depthExp >= getExpForDepth(depthLevel + 1)) {
+    if (depthLevel < s.maxDepth && depthExp >= getExpForDepth(depthLevel + 1)) {
         depthLevel++;
         bNeedsUpdate = true;
     }
-    currentDepth = depthLevel;
-    // 数値が動いている、または深さが変わった時にメッシュ更新
-    if (abs(bLen - prevLen) > 0.01f || abs(bThick - prevThick) > 0.01f || maxMutationReached > 0.95f) {
-        currentDepth = depthLevel;
-        bNeedsUpdate = true;
-    }
 
-    // アニメーション（色彩やノイズ）のために毎フレームフラグを立てることも検討
-    if (maxMutationReached > 0.95f) bNeedsUpdate = true;
-
-    if (bNeedsUpdate) {
+    if (bNeedsUpdate || abs(bLen - tLen) > 0.5f || abs(bThick - tThick) > 0.1f) {
         vboMesh.clear();
-        vboMesh.setMode(OF_PRIMITIVE_TRIANGLES);
         ofSetRandomSeed(seed);
-        buildBranchMesh(bLen * lengthVisualScale, bThick * thickVisualScale, currentDepth, glm::mat4(1.0), chaosResist, bloomLevel);
+        // 構造体 s を経由して描画パラメータを渡す
+        buildBranchMesh(bLen * s.lenScale, bThick * s.thickScale, depthLevel, glm::mat4(1.0), chaosResist, bloomLevel);
         bNeedsUpdate = false;
     }
 }
@@ -1185,7 +1188,7 @@ void Tree::buildBranchMesh(float length, float thickness, int depth, glm::mat4 m
     if (depth < 0) return;
 
     // 現在の枝（幹）をメッシュに追加
-    addStemToMesh(thickness, thickness * branchThickRatio, length, mat, chaosResist, depth);
+    addStemToMesh(thickness, thickness * s.branchThickRatio, length, mat, chaosResist, depth);
 
     // 枝の先端の行列を計算
     glm::mat4 tipMat = glm::translate(mat, glm::vec3(0, length, 0));
@@ -1208,7 +1211,7 @@ void Tree::buildBranchMesh(float length, float thickness, int depth, glm::mat4 m
 
     for (int i = 0; i < numBranches; i++) {
         glm::mat4 childMat = getNextBranchMatrix(tipMat, i, numBranches, angleBase);
-        buildBranchMesh(length * 0.75f, thickness * 0.7f, depth - 1, childMat, chaosResist, bloomLevel);
+        buildBranchMesh(length * s.branchLenRatio, thickness * s.branchThickRatio, depth - 1, childMat, chaosResist, bloomLevel);
     }
 }
 
@@ -1216,7 +1219,7 @@ void Tree::addStemToMesh(float r1, float r2, float h, glm::mat4 mat, int chaosRe
     int segments = (depth <= 4) ? 3 : 5;
 
     float timeShift = ofGetElapsedTimef() * 20.0f;
-    float hueBase = ofMap(bMutation, 0, 1, trunkHueStart, trunkHueEnd);
+    float hueBase = ofMap(bMutation, 0, 1, s.trunkHueStart, s.trunkHueEnd);
     float finalHue = fmod(hueBase + timeShift + (depth * 10), 255.0f);
     ofColor col = ofColor::fromHsb(finalHue, 160, 180 + (depth * 10));
     
@@ -1253,7 +1256,7 @@ void Tree::addStemToMesh(float r1, float r2, float h, glm::mat4 mat, int chaosRe
 
 float Tree::getExpForDepth(int d) {
     if (d <= 0) return 0;
-    return depthExpBase * pow((float)d, depthExpPower);
+    return s.expBase * pow((float)d, s.expPower);
 }
 
 float Tree::getDepthProgress() {
@@ -1339,11 +1342,16 @@ void Tree::reset() {
     vboMesh.clear();
     bNeedsUpdate = true;
 }
+
+int Tree::getCurrentDepth() {
+    return depthLevel;
+}
 </file>
 
 <file path="Tree.h">
 #pragma once
 #include "ofMain.h"
+#include "Constants.h"
 
 class Tree {
 public:
@@ -1364,7 +1372,7 @@ public:
     float getCurMutation() { return bMutation; }
     float getDepthExp() { return depthExp; }
     int getDepthLevel() { return depthLevel; }
-    int getCurrentDepth() { return currentDepth; }
+    int getCurrentDepth();
     int getDayCount() { return dayCount; }
     int getSeed() { return seed; }
     float getDepthProgress();
@@ -1394,13 +1402,14 @@ private:
     bool bNeedsUpdate = true;
 
     // --- JSON定数 ---
-    int maxDepthConfig, currentDepth = 0;
+    TreeSettings s;
+    /*int maxDepthConfig, currentDepth = 0;
     float depthExpBase, depthExpPower;
     float lengthVisualScale, thickVisualScale;
     float branchLenRatio, branchThickRatio;
     float baseAngle, mutationAngleMax;
     float trunkHueStart, trunkHueEnd;
-    ofColor leafColor, flowerColor;
+    ofColor leafColor, flowerColor;*/
 };
 </file>
 
