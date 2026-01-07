@@ -16,6 +16,9 @@ void Tree::setup(const ofJson& config) {
     s.trunkHueStart = c.value("trunk_hue_start", 20.0f);
     s.trunkHueEnd = c.value("trunk_hue_end", 160.0f);
     s.leafColor = ofColor(c["leaf"][0], c["leaf"][1], c["leaf"][2], c["leaf"][3]);
+
+	// test value
+    //s.twistFactor = 90.0f;
 }
 
 void Tree::update(int growthLevel, int chaosResist, int bloomLevel) {
@@ -23,6 +26,8 @@ void Tree::update(int growthLevel, int chaosResist, int bloomLevel) {
     bLen = ofLerp(bLen, tLen, 0.1f);
     bThick = ofLerp(bThick, tThick, 0.1f);
     bMutation = ofLerp(bMutation, tMutation, 0.1f);
+
+    maxMutationReached = max(maxMutationReached, bMutation);
 
     if (depthLevel < s.maxDepth && depthExp >= getExpForDepth(depthLevel + 1)) {
         depthLevel++;
@@ -42,25 +47,44 @@ void Tree::draw() {
     vboMesh.draw();
 }
 
-void Tree::water(float buff, int growthLevel, float increment) {
-    depthExp += 5.0f * buff;                  // Depth +
-    tLen += increment * 2.0f * buff;          // 長さ ++
-    tThick = max(2.0f, tThick - 3.0f);        // 太さ - (最小値2)
-    tMutation = max(0.0f, tMutation - 0.1f);  // カオス --
+void Tree::water(float buff, int resilienceLevel, float increment) {
+    // デメリット軽減係数 (1レベルにつき15%軽減)
+    float penaltyFactor = 1.0f - (resilienceLevel * 0.15f);
+
+    depthExp += 5.0f * buff;
+
+    float lenGain = increment * 2.0f * buff;
+    tLen += lenGain;
+    totalLenEarned += lenGain; // 累積加算
+
+    // デメリット（太さ減少）に軽減を適用
+    tThick = max(2.0f, tThick - (3.0f * penaltyFactor));
+    tMutation = max(0.0f, tMutation - 0.1f);
 }
 
-void Tree::fertilize(float buff, float increment) {
-    depthExp += 5.0f * buff;                  // Depth +
-    tLen = max(10.0f, tLen - 5.0f);           // 長さ - (最小値10)
-    tThick += increment * 2.0f * buff;        // 太さ ++
-    tMutation = max(0.0f, tMutation - 0.05f); // カオス -
+void Tree::fertilize(float buff, int resilienceLevel, float increment) {
+    float penaltyFactor = 1.0f - (resilienceLevel * 0.15f);
+
+    depthExp += 5.0f * buff;
+
+    // デメリット（長さ減少）に軽減を適用
+    tLen = max(10.0f, tLen - (5.0f * penaltyFactor));
+
+    float thickGain = increment * 2.0f * buff;
+    tThick += thickGain;
+    totalThickEarned += thickGain; // 累積加算
+
+    tMutation = max(0.0f, tMutation - 0.05f);
 }
 
 void Tree::kotodama(float buff) {
-    depthExp += 5.0f * buff;                 // Depth ++
-    tLen += 10.0f * buff;                     // 長さ +
-    tThick = max(2.0f, tThick - 5.0f);        // 太さ -
-    tMutation = ofClamp(tMutation + 0.2f * buff, 0.0f, 1.0f); // カオス +
+    depthExp += 5.0f * buff;
+    tLen += 10.0f * buff;
+    tThick = max(2.0f, tThick - 5.0f);
+
+    float mutGain = 0.2f * buff;
+    tMutation = ofClamp(tMutation + mutGain, 0.0f, 1.0f);
+    totalMutationEarned += mutGain; // 累積加算
 }
 
 glm::mat4 Tree::getNextBranchMatrix(glm::mat4 tipMat, int index, int total, float angleBase) {
@@ -105,8 +129,11 @@ void Tree::buildBranchMesh(float length, float thickness, int depth, glm::mat4 m
 }
 
 void Tree::addStemToMesh(float r1, float r2, float h, glm::mat4 mat, int chaosResist, int depth) {
-    int segments = (depth <= 4) ? 3 : 5;
+    int segments = (depth <= 4) ? 3 : 5; // LOD: 深い枝ほど角数を減らす
+    int subdivisions = 4;                // 縦方向の分割数
+    int numRings = subdivisions + 1;
 
+    // --- 色の計算 ---
     float timeShift = ofGetElapsedTimef() * 20.0f;
     float hueBase = ofMap(bMutation, 0, 1, s.trunkHueStart, s.trunkHueEnd);
     float finalHue = fmod(hueBase + timeShift + (depth * 10), 255.0f);
@@ -116,30 +143,61 @@ void Tree::addStemToMesh(float r1, float r2, float h, glm::mat4 mat, int chaosRe
     // 法線変換用の行列
     glm::mat3 normalMatrix = glm::inverseTranspose(glm::mat3(mat));
 
-    for (int i = 0; i < segments; i++) {
-        float a1 = i * TWO_PI / segments;
-        float a2 = (i + 1) * TWO_PI / segments;
-        glm::vec3 n1(cos(a1), 0, sin(a1)), n2(cos(a2), 0, sin(a2));
-        glm::vec4 p1(n1.x * r1, 0, n1.z * r1, 1), p2(n2.x * r1, 0, n2.z * r1, 1);
-        glm::vec4 p3(n1.x * r2, h, n1.z * r2, 1), p4(n2.x * r2, h, n2.z * r2, 1);
+    // 現在のVBOの頂点開始インデックスを記録
+    int startIndex = vboMesh.getNumVertices();
 
-        // 変異度に基づいた形状のノイズアニメーション
-        if (maxMutationReached > 0.5f) {
-            float nStr = ofMap(maxMutationReached, 0.5, 1.0, 0, 120.0f, true);
-            auto applyNoise = [&](glm::vec4& p) {
+    // 1. 頂点と法線の生成
+    for (int ring = 0; ring < numRings; ring++) {
+        float ratio = (float)ring / subdivisions;
+        float currentR = ofLerp(r1, r2, ratio); // テーパリング
+        float currentY = h * ratio;
+
+        // 進化タイプや設定に応じた「ねじれ」の適用
+        float twistAngle = glm::radians(s.twistFactor * ratio);
+
+        for (int i = 0; i < segments; i++) {
+            float angle = (i * TWO_PI / segments) + twistAngle;
+            glm::vec3 unitPos(cos(angle), 0, sin(angle));
+
+            // 頂点座標（ローカル）
+            glm::vec4 p(unitPos.x * currentR, currentY, unitPos.z * currentR, 1);
+
+            // カオス度が高い場合の頂点ノイズ（最上段に近いほど強く揺らす）
+            if (maxMutationReached > 0.5f && ring > 0) {
+                float nStr = ofMap(maxMutationReached, 0.5, 1.0, 0, 120.0f, true) * ratio;
                 p.x += ofSignedNoise(p.x * 0.1, p.y * 0.1, ofGetElapsedTimef()) * nStr;
                 p.z += ofSignedNoise(p.z * 0.1, p.y * 0.1, ofGetElapsedTimef() + 10) * nStr;
-                };
-            applyNoise(p3); applyNoise(p4);
-        }
+            }
 
-        // VBO登録 (三角形1, 2)
-        vboMesh.addVertex(glm::vec3(mat * p1)); vboMesh.addNormal(normalMatrix * n1); vboMesh.addColor(col);
-        vboMesh.addVertex(glm::vec3(mat * p2)); vboMesh.addNormal(normalMatrix * n2); vboMesh.addColor(col);
-        vboMesh.addVertex(glm::vec3(mat * p3)); vboMesh.addNormal(normalMatrix * n1); vboMesh.addColor(col);
-        vboMesh.addVertex(glm::vec3(mat * p2)); vboMesh.addNormal(normalMatrix * n2); vboMesh.addColor(col);
-        vboMesh.addVertex(glm::vec3(mat * p4)); vboMesh.addNormal(normalMatrix * n2); vboMesh.addColor(col);
-        vboMesh.addVertex(glm::vec3(mat * p3)); vboMesh.addNormal(normalMatrix * n1); vboMesh.addColor(col);
+            // VBOへの登録
+            vboMesh.addVertex(glm::vec3(mat * p));
+            vboMesh.addNormal(normalMatrix * unitPos); // 簡易法線
+            vboMesh.addColor(col);
+        }
+    }
+
+    // 2. インデックスの生成（面を貼る）
+    for (int ring = 0; ring < subdivisions; ring++) {
+        for (int i = 0; i < segments; i++) {
+            int nextI = (i + 1) % segments;
+
+            // 現在の層の2点
+            int v0 = startIndex + (ring * segments) + i;
+            int v1 = startIndex + (ring * segments) + nextI;
+            // 次の層の2点
+            int v2 = startIndex + ((ring + 1) * segments) + i;
+            int v3 = startIndex + ((ring + 1) * segments) + nextI;
+
+            // 三角形1
+            vboMesh.addIndex(v0);
+            vboMesh.addIndex(v1);
+            vboMesh.addIndex(v2);
+
+            // 三角形2
+            vboMesh.addIndex(v1);
+            vboMesh.addIndex(v3);
+            vboMesh.addIndex(v2);
+        }
     }
 }
 

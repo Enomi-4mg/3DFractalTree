@@ -439,7 +439,7 @@ void ofApp::keyPressed(int key) {
     }
     if (state.bShowDebug && key == '+') {
         myTree.water(5.0, 0, 50.0);
-        myTree.fertilize(5.0, 50.0);
+        myTree.fertilize(5.0, 0, 50.0);
     }
     if (key == 'r' || key == 'R') {
         myTree.reset();
@@ -470,7 +470,7 @@ void ofApp::processCommand(int key) {
         actionTaken = true;
     }
     else if (key == '2') {
-        myTree.fertilize(1.0, g.value("fertilize_increment", 8.0f));
+        myTree.fertilize(1.0, growthLevel, g.value("fertilize_increment", 8.0f));
         spawn2DEffect(P_FERTILIZER);
         actionTaken = true;
     }

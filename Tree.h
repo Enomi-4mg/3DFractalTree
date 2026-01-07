@@ -9,8 +9,8 @@ public:
     void draw();
     void reset();
 
-    void water(float buff, int growthLevel, float increment);      // 長さを伸ばし、カオス度を下げる
-    void fertilize(float buff, float increment);  // 太さを増し、カオス度を下げる
+    void water(float buff, int resilienceLevel, float increment);      // 長さを伸ばし、カオス度を下げる
+    void fertilize(float buff, int resilienceLevel, float increment);  // 太さを増し、カオス度を下げる
     void kotodama(float buff);   // カオス度を上げる
     void incrementDay() { if (dayCount < 50) dayCount++; }
 
@@ -22,6 +22,9 @@ public:
     float getDepthExp() { return depthExp; }
     int getDepthLevel() { return depthLevel; }
     int getCurrentDepth();
+    float getTotalLenEarned() { return totalLenEarned; }
+    float getTotalThickEarned() { return totalThickEarned; }
+    float getTotalMutationEarned() { return totalMutationEarned; }
     int getDayCount() { return dayCount; }
     int getSeed() { return seed; }
     float getDepthProgress();
@@ -41,6 +44,9 @@ private:
     float tLen = 10, tThick = 2, tMutation = 0;
     float depthExp = 0;
     int depthLevel = 0;
+    float totalLenEarned = 0;
+    float totalThickEarned = 0;
+    float totalMutationEarned = 0;
 
     // --- 状態管理 ---
     ofVboMesh vboMesh; 

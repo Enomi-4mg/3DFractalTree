@@ -64,32 +64,6 @@ Weather.h
 <files>
 This section contains the contents of the repository's files.
 
-<file path="Constants.h">
-// Constants.h
-#pragma once
-#include "ofMain.h"
-
-struct TreeSettings {
-    int maxDepth;
-    float expBase, expPower;
-    float lenScale, thickScale;
-    float branchLenRatio, branchThickRatio;
-    float baseAngle, mutationAngleMax;
-    float trunkHueStart, trunkHueEnd;
-    ofColor leafColor, flowerColor;
-};
-
-struct GameState {
-    int dayCount = 1;
-    int skillPoints = 3;
-    bool bGameEnded = false;
-    bool bViewMode = false;
-    bool bShowDebug = false;
-    string finalTitle = "";
-    int maxDays = 50;
-};
-</file>
-
 <file path="addons.make">
 ofxGui
 </file>
@@ -104,6 +78,52 @@ ofxGui
 
 <file path="config.make">
 
+</file>
+
+<file path="Constants.h">
+// Constants.h
+#pragma once
+#include "ofMain.h"
+
+// Źˇ^CvĚč`
+enum GrowthType {
+    TYPE_DEFAULT,
+    TYPE_ELEGANT,  // ˇłd
+    TYPE_STURDY,   // žłd
+    TYPE_ELDRITCH  // JIXd
+};
+
+// JÔ^CvĚč`
+enum FlowerType {
+    FLOWER_NONE,
+    FLOWER_CRYSTAL, // áĚť
+    FLOWER_PETAL,   // ÔŮ
+    FLOWER_SPIRIT   // ě°iqg_}j
+};
+
+struct TreeSettings {
+    int maxDepth;
+    float expBase, expPower;
+    float lenScale, thickScale;
+    float branchLenRatio, branchThickRatio;
+    float baseAngle, mutationAngleMax;
+    float trunkHueStart, trunkHueEnd;
+    float twistFactor = 0.0f;
+    ofColor leafColor, flowerColor;
+};
+
+struct GameState {
+    int dayCount = 1;
+    int skillPoints = 3;
+    bool bGameEnded = false;
+    bool bViewMode = false;
+    bool bShowDebug = false;
+    string finalTitle = "";
+    int maxDays = 50;
+    GrowthType currentType = TYPE_DEFAULT;
+    FlowerType currentFlowerType = FLOWER_NONE;
+    int resilienceLevel = 0;
+};
 </file>
 
 <file path="icon.rc">
@@ -301,6 +321,77 @@ public:
 };
 </file>
 
+<file path="Weather.h">
+#pragma once
+#include "ofMain.h"
+
+enum WeatherState { SUNNY, RAINY, MOONLIGHT };
+
+class Weather {
+    // 2Dの雨線を管理する構造体
+    struct RainLine {
+        float x, y, speed, length;
+    };
+    vector<RainLine> rainLines;
+
+public:
+    WeatherState state = SUNNY;
+
+    void setup() {
+        rainLines.clear();
+        // 画面全体に雨の線を初期配置
+        for (int i = 0; i < 200; i++) {
+            rainLines.push_back({ ofRandomWidth(), ofRandomHeight(), ofRandom(12, 25), ofRandom(15, 40) });
+        }
+    }
+
+    void update() {
+        if (state == RAINY) {
+            for (auto& r : rainLines) {
+                r.y += r.speed;
+                if (r.y > ofGetHeight()) {
+                    r.y = -r.length;
+                    r.x = ofRandomWidth();
+                }
+            }
+        }
+    }
+
+    // カメラの外（2D）で描画するメソッド
+    void draw2D() {
+        if (state == RAINY) {
+            ofPushStyle();
+            ofSetLineWidth(1);
+            ofSetColor(170, 200, 255, 130); // 青白く少し透明な色
+            for (auto& r : rainLines) {
+                ofDrawLine(r.x, r.y, r.x, r.y + r.length);
+            }
+            ofPopStyle();
+        }
+    }
+
+    void toggle() { state = static_cast<WeatherState>((state + 1) % 3); }
+    void randomize() { state = static_cast<WeatherState>((int)ofRandom(0, 3)); }
+    string getName() {
+        if (state == SUNNY) return "SUNNY";
+        if (state == RAINY) return "RAINY";
+        return "MOONLIGHT";
+    }
+    // ofApp から渡された config を使って背景色を決定
+    ofColor getBgFromConfig(const ofJson& config) {
+        string key = "";
+        if (state == SUNNY) key = "sunny_bg";
+        else if (state == RAINY) key = "rainy_bg";
+        else key = "moonlight_bg";
+
+        auto c = config["weather"][key];
+        return ofColor(c[0], c[1], c[2]);
+    }
+
+    float getGrowthBuff() { return 1.5f; }
+};
+</file>
+
 <file path="3DFractalTree.vcxproj.filters">
 <?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
@@ -422,77 +513,6 @@ public:
     <ResourceCompile Include="icon.rc" />
   </ItemGroup>
 </Project>
-</file>
-
-<file path="Weather.h">
-#pragma once
-#include "ofMain.h"
-
-enum WeatherState { SUNNY, RAINY, MOONLIGHT };
-
-class Weather {
-    // 2Dの雨線を管理する構造体
-    struct RainLine {
-        float x, y, speed, length;
-    };
-    vector<RainLine> rainLines;
-
-public:
-    WeatherState state = SUNNY;
-
-    void setup() {
-        rainLines.clear();
-        // 画面全体に雨の線を初期配置
-        for (int i = 0; i < 200; i++) {
-            rainLines.push_back({ ofRandomWidth(), ofRandomHeight(), ofRandom(12, 25), ofRandom(15, 40) });
-        }
-    }
-
-    void update() {
-        if (state == RAINY) {
-            for (auto& r : rainLines) {
-                r.y += r.speed;
-                if (r.y > ofGetHeight()) {
-                    r.y = -r.length;
-                    r.x = ofRandomWidth();
-                }
-            }
-        }
-    }
-
-    // カメラの外（2D）で描画するメソッド
-    void draw2D() {
-        if (state == RAINY) {
-            ofPushStyle();
-            ofSetLineWidth(1);
-            ofSetColor(170, 200, 255, 130); // 青白く少し透明な色
-            for (auto& r : rainLines) {
-                ofDrawLine(r.x, r.y, r.x, r.y + r.length);
-            }
-            ofPopStyle();
-        }
-    }
-
-    void toggle() { state = static_cast<WeatherState>((state + 1) % 3); }
-    void randomize() { state = static_cast<WeatherState>((int)ofRandom(0, 3)); }
-    string getName() {
-        if (state == SUNNY) return "SUNNY";
-        if (state == RAINY) return "RAINY";
-        return "MOONLIGHT";
-    }
-    // ofApp から渡された config を使って背景色を決定
-    ofColor getBgFromConfig(const ofJson& config) {
-        string key = "";
-        if (state == SUNNY) key = "sunny_bg";
-        else if (state == RAINY) key = "rainy_bg";
-        else key = "moonlight_bg";
-
-        auto c = config["weather"][key];
-        return ofColor(c[0], c[1], c[2]);
-    }
-
-    float getGrowthBuff() { return 1.5f; }
-};
 </file>
 
 <file path="src/ofApp.cpp">
@@ -937,7 +957,7 @@ void ofApp::keyPressed(int key) {
     }
     if (state.bShowDebug && key == '+') {
         myTree.water(5.0, 0, 50.0);
-        myTree.fertilize(5.0, 50.0);
+        myTree.fertilize(5.0, 0, 50.0);
     }
     if (key == 'r' || key == 'R') {
         myTree.reset();
@@ -968,7 +988,7 @@ void ofApp::processCommand(int key) {
         actionTaken = true;
     }
     else if (key == '2') {
-        myTree.fertilize(1.0, g.value("fertilize_increment", 8.0f));
+        myTree.fertilize(1.0, growthLevel, g.value("fertilize_increment", 8.0f));
         spawn2DEffect(P_FERTILIZER);
         actionTaken = true;
     }
@@ -1135,6 +1155,8 @@ void Tree::update(int growthLevel, int chaosResist, int bloomLevel) {
     bThick = ofLerp(bThick, tThick, 0.1f);
     bMutation = ofLerp(bMutation, tMutation, 0.1f);
 
+    maxMutationReached = max(maxMutationReached, bMutation);
+
     if (depthLevel < s.maxDepth && depthExp >= getExpForDepth(depthLevel + 1)) {
         depthLevel++;
         bNeedsUpdate = true;
@@ -1153,25 +1175,44 @@ void Tree::draw() {
     vboMesh.draw();
 }
 
-void Tree::water(float buff, int growthLevel, float increment) {
-    depthExp += 5.0f * buff;                  // Depth +
-    tLen += increment * 2.0f * buff;          // 長さ ++
-    tThick = max(2.0f, tThick - 3.0f);        // 太さ - (最小値2)
-    tMutation = max(0.0f, tMutation - 0.1f);  // カオス --
+void Tree::water(float buff, int resilienceLevel, float increment) {
+    // デメリット軽減係数 (1レベルにつき15%軽減)
+    float penaltyFactor = 1.0f - (resilienceLevel * 0.15f);
+
+    depthExp += 5.0f * buff;
+
+    float lenGain = increment * 2.0f * buff;
+    tLen += lenGain;
+    totalLenEarned += lenGain; // 累積加算
+
+    // デメリット（太さ減少）に軽減を適用
+    tThick = max(2.0f, tThick - (3.0f * penaltyFactor));
+    tMutation = max(0.0f, tMutation - 0.1f);
 }
 
-void Tree::fertilize(float buff, float increment) {
-    depthExp += 5.0f * buff;                  // Depth +
-    tLen = max(10.0f, tLen - 5.0f);           // 長さ - (最小値10)
-    tThick += increment * 2.0f * buff;        // 太さ ++
-    tMutation = max(0.0f, tMutation - 0.05f); // カオス -
+void Tree::fertilize(float buff, int resilienceLevel, float increment) {
+    float penaltyFactor = 1.0f - (resilienceLevel * 0.15f);
+
+    depthExp += 5.0f * buff;
+
+    // デメリット（長さ減少）に軽減を適用
+    tLen = max(10.0f, tLen - (5.0f * penaltyFactor));
+
+    float thickGain = increment * 2.0f * buff;
+    tThick += thickGain;
+    totalThickEarned += thickGain; // 累積加算
+
+    tMutation = max(0.0f, tMutation - 0.05f);
 }
 
 void Tree::kotodama(float buff) {
-    depthExp += 5.0f * buff;                 // Depth ++
-    tLen += 10.0f * buff;                     // 長さ +
-    tThick = max(2.0f, tThick - 5.0f);        // 太さ -
-    tMutation = ofClamp(tMutation + 0.2f * buff, 0.0f, 1.0f); // カオス +
+    depthExp += 5.0f * buff;
+    tLen += 10.0f * buff;
+    tThick = max(2.0f, tThick - 5.0f);
+
+    float mutGain = 0.2f * buff;
+    tMutation = ofClamp(tMutation + mutGain, 0.0f, 1.0f);
+    totalMutationEarned += mutGain; // 累積加算
 }
 
 glm::mat4 Tree::getNextBranchMatrix(glm::mat4 tipMat, int index, int total, float angleBase) {
@@ -1360,8 +1401,8 @@ public:
     void draw();
     void reset();
 
-    void water(float buff, int growthLevel, float increment);      // 長さを伸ばし、カオス度を下げる
-    void fertilize(float buff, float increment);  // 太さを増し、カオス度を下げる
+    void water(float buff, int resilienceLevel, float increment);      // 長さを伸ばし、カオス度を下げる
+    void fertilize(float buff, int resilienceLevel, float increment);  // 太さを増し、カオス度を下げる
     void kotodama(float buff);   // カオス度を上げる
     void incrementDay() { if (dayCount < 50) dayCount++; }
 
@@ -1373,6 +1414,9 @@ public:
     float getDepthExp() { return depthExp; }
     int getDepthLevel() { return depthLevel; }
     int getCurrentDepth();
+    float getTotalLenEarned() { return totalLenEarned; }
+    float getTotalThickEarned() { return totalThickEarned; }
+    float getTotalMutationEarned() { return totalMutationEarned; }
     int getDayCount() { return dayCount; }
     int getSeed() { return seed; }
     float getDepthProgress();
@@ -1392,6 +1436,9 @@ private:
     float tLen = 10, tThick = 2, tMutation = 0;
     float depthExp = 0;
     int depthLevel = 0;
+    float totalLenEarned = 0;
+    float totalThickEarned = 0;
+    float totalMutationEarned = 0;
 
     // --- 状態管理 ---
     ofVboMesh vboMesh; 
