@@ -159,7 +159,7 @@ public:
 </file>
 
 <file path="README.md">
-# **3Dフラクタル成長シミュレーター 仕様書 Ver.9.0**
+# **3Dフラクタル成長シミュレーター 仕様書 Ver.10.0**
 
 ## **1\. プロジェクト概要**
 
@@ -170,8 +170,8 @@ C++およびopenFrameworks v0.12.1を用いた、フラクタル構造の動的�
 ### **メイン操作 (GUI / マウス)**
 
 * **下部アクションバー**: 育成コマンド（WATER, FERTILIZE, KOTODAMA）の実行。  
-* **右側成長スロット**: スキルアップグレード（GROWTH, RESIST, CATALYST）の実行。  
-* **クールタイム**: コマンド実行後、settings.json で指定された秒数（デフォルト1.0s）は操作がロックされる。
+* **右側成長スロット**: スキルアップグレード（GROWTH, RESIST, CATALYST）の実行。
+* **ビューモード（Vキー）**: マウスドラッグ・ホイール操作でカメラ移動
 
 ### **キーボードショートカット**
 
@@ -194,14 +194,12 @@ C++およびopenFrameworks v0.12.1を用いた、フラクタル構造の動的�
 ### **3.1 描画エンジン (Tree クラス)**
 
 * **VBOインデックス描画**: 枝、葉、花を単一の ofVboMesh に集約。  
-* **枝の形状**: 1本の枝を縦方向に4分割（5断面）し、twistFactor によるねじれとテーパリングを実装。  
+* **枝の形状**: 1本の枝を縦方向に4分割（5断面）し、ねじれ（Twist）とテーパリングを実装。
 * **LOD制御**: 再帰深度に基づき、断面の頂点数を 3〜5 に動的調整。
 
 ### **3.2 UI・演出システム (ofApp クラス)**
 
-* **二段構えプログレスバー**: 経験値が100%に達した際、「発光保持 (0.4s)」を経てからリセットされるアニメーションを実装。  
-* **進化勲章システム**: 画面左側に進化状態を記号（◇:ELEGANT, □:STURDY, ◎:ELDRITCH, ✿:BLOOM）で表示。達成時にタイプ別のイメージカラーで点灯。  
-* **オーラ演出**: OF\_BLENDMODE\_ADD を用いた色加算描画。スキルアップ時に木の根元から上空へ向けて、鋭い直線状の光芒（AuraBeam）を生成・明滅させる。  
+* **色加算合成 (OF\_BLENDMODE\_ADD)**: オーラおよびパーティクル描画などのエフェクト効果に適用。
 * **レスポンシブ配置**: getUIScale() により、解像度 1024x768 を基準とした自動スケーリングを適用。
 
 ### **3.3 データ管理構造**
@@ -238,11 +236,6 @@ C++およびopenFrameworks v0.12.1を用いた、フラクタル構造の動的�
 * **camera**: 回転速度、補間速度、最小距離、高さ係数。
 * **weather**: 各天候の背景色。
 * **game**: 最大日数、スキルポイント付与間隔、コマンドごとの基礎増分値。
-
-## **5\. 次のステップ (Roadmap)**
-* **パフォーマンス**: 再帰深度が深い際のメッシュ再構築負荷。1フレームでの全更新を避ける「分割構築（Time-Slicing）」の導入を検討。  
-* **ビジュアル**: 枝の接続部のさらなる平滑化。
-* **UI改善**: 直感的な操作などインタラクションの強化。
 </file>
 
 <file path="Weather.h">
@@ -459,7 +452,10 @@ public:
             "flower": [255, 180, 200],
             "elegant": [180, 220, 255], 
             "sturdy": [150, 255, 100],
-            "eldritch": [255, 50, 100]
+            "eldritch": [255, 50, 100],
+            "aura_growth": [180, 220, 255],
+            "aura_resist": [150, 255, 100],
+            "aura_catalyst": [255, 150, 200]
         }
     },
     "camera": {
@@ -477,7 +473,14 @@ public:
         "max_days": 50,
         "skill_interval": 5,
         "water_increment": 15.0,
-        "fertilize_increment": 8.0
+        "fertilize_increment": 8.0,
+        "evo_day_branch": 20,
+        "evo_day_bloom": 40,
+        "skill_costs": {
+            "growth": 1,
+            "resist": 1,
+            "catalyst": 1
+        }
     },
     "ui": {
         "labels": {
@@ -508,10 +511,23 @@ public:
             "beam_count": 12,
             "flicker_speed": 15.0
         },
-        "skill_costs": {
-            "growth": 1,
-            "resist": 1,
-            "catalyst": 1
+        // "skill_costs": {
+        //     "growth": 1,
+        //     "resist": 1,
+        //     "catalyst": 1
+        // }
+    },
+    "effects": {
+        "kotodama": {
+            "particle_count": 15,
+            "spiral_speed": 8.0,
+            "min_radius_ratio": 0.4,
+            "max_radius_ratio": 0.8
+        },
+        "aura": {
+            "duration": 1.8,
+            "beam_count": 15,
+            "flicker_speed": 40.0
         }
     }
 }
@@ -1858,14 +1874,14 @@ void ofApp::spawn2DEffect(ParticleType type) {
         }break;
 
         case P_KOTODAMA: {
-            p.pos = { (float)ofGetWidth() / 2, (float)ofGetHeight() / 2 };
-            float angle = ofRandom(TWO_PI);
-            float spd = ofRandom(5, 15);
-            p.vel = { cos(angle) * spd, sin(angle) * spd };
-            p.color = ofColor(200, 160, 255);
-            p.size = ofRandom(10, 30);
-            p.decay = ofRandom(0.02, 0.04);
-            p.spiralRadius = ofRandom(0.3f, 0.6f) * glm::length(glm::vec2(sw, sh));
+            auto& k = config["effects"]["kotodama"];
+            auto c = config["tree"]["colors"]["elegant"];
+            p.color = ofColor(c[0], c[1], c[2]);
+            p.decay = ofRandom(0.01f, 0.02f);
+            p.angle = ofRandom(TWO_PI);
+            p.size = ofRandom(10, 20) * screenScale;
+            float screenDiag = glm::length(glm::vec2(sw, sh));
+            p.spiralRadius = ofRandom(k.value("min_radius_ratio", 0.4f), k.value("max_radius_ratio", 0.8f)) * screenDiag;
             p.life = 1.0f;
         }break;
 
@@ -1895,6 +1911,7 @@ void ofApp::triggerAura(ofColor col) {
     state.auraColor = col;
     auraBeams.clear();
 
+    auto& a = config["effects"]["aura"];
     float treeH = myTree.getLen() * config["camera"].value("height_factor", 3.5f);
     float effectScale = std::max(1.0f, treeH / 200.0f);
 
@@ -1965,17 +1982,6 @@ void ofApp::executeCommand(CommandType type) {
         break;
     case CMD_KOTODAMA:
         myTree.kotodama(1.0);
-        for (int i = 0; i < 40; i++) {
-            Particle2D p;
-            p.type = P_KOTODAMA;
-            p.pos = { (float)ofGetWidth() * 0.5f, (float)ofGetHeight() * 0.5f };
-            p.color = ofColor(200, 160, 255);
-            p.size = 5.0f;
-            p.decay = ofRandom(0.01f, 0.02f);
-            p.angle = ofRandom(TWO_PI);
-            p.spiralRadius = ofRandom(400, 600);
-            particles2D.push_back(p);
-        }
         spawn2DEffect(P_KOTODAMA);
         break;
     }
@@ -1987,7 +1993,6 @@ void ofApp::executeCommand(CommandType type) {
         if (myTree.getDayCount() % config["game"].value("skill_interval", 5) == 0) {
             state.skillPoints++;
         }
-        weather.randomize();
     }
     weather.randomize();
 
@@ -2073,48 +2078,51 @@ void ofApp::processCommand(int key) {
 
 // --- スキル処理 ---
 void ofApp::upgradeGrowth() { 
-    if (state.skillPoints > 0 && growthLevel < 5) { 
-        growthLevel++; state.skillPoints--;
-        triggerAura(ofColor(180, 220, 255));
+    int cost = config["game"]["skill_costs"].value("growth", 1);
+    if (state.skillPoints >= cost && growthLevel < 5) {
+        growthLevel++; state.skillPoints--; 
+        auto c = config["tree"]["colors"]["aura_growth"];
+        triggerAura(ofColor(c[0], c[1], c[2]));
     } 
 }
-void ofApp::upgradeResist() { 
-    if (state.skillPoints > 0 && chaosResistLevel < 5) { 
+void ofApp::upgradeResist() {
+    int cost = config["game"]["skill_costs"].value("resist", 1);
+    if (state.skillPoints >= cost && chaosResistLevel < 5) { 
         chaosResistLevel++; state.skillPoints--; 
-        triggerAura(ofColor(150, 255, 100));
+        auto c = config["tree"]["colors"]["aura_resist"];
+        triggerAura(ofColor(c[0], c[1], c[2]));
     } 
 }
-void ofApp::upgradeCatalyst() { 
-    if (state.skillPoints > 0 && bloomCatalystLevel < 5) { 
+void ofApp::upgradeCatalyst() {
+    int cost = config["game"]["skill_costs"].value("catalyst", 1);
+    if (state.skillPoints >= cost && bloomCatalystLevel < 5) { 
         bloomCatalystLevel++; state.skillPoints--; 
-        triggerAura(ofColor(255, 150, 200));
+        auto c = config["tree"]["colors"]["aura_catalyst"];
+        triggerAura(ofColor(c[0], c[1], c[2]));
     } 
 }
 
 void ofApp::checkEvolution() {
+    auto& g = config["game"];
     int day = myTree.getDayCount();
+    int dayBranch = g.value("evo_day_branch", 20);
+    int dayBloom = g.value("evo_day_bloom", 40);
     // 20日目かつ、まだデフォルト状態の場合のみ実行
-    if (day == 20 && state.currentType == TYPE_DEFAULT) {
+    if (day == dayBranch && state.currentType == TYPE_DEFAULT) {
         float L = myTree.getTotalLenEarned();
         float T = myTree.getTotalThickEarned();
         float M = myTree.getTotalMutationEarned();
 
-        // 最大の蓄積値を持つパラメタに応じて分岐
         if (L >= T && L >= M) state.currentType = TYPE_ELEGANT;
         else if (T >= L && T >= M) state.currentType = TYPE_STURDY;
         else state.currentType = TYPE_ELDRITCH;
 
-        // 木に進化を適用
         myTree.applyEvolution(state.currentType);
-        state.evo.hasEvolvedType = true; // フラグを立てる (修正点)
+        state.evo.hasEvolvedType = true;
         state.evo.type = state.currentType;
-
-        // 進化演出：パーティクル放出
         spawn2DEffect(P_BLOOM);
-
-        ofLogNotice("Evolution") << "Tree evolved into Type: " << state.currentType;
     }
-    if (day == 40 && state.currentFlowerType == FLOWER_NONE) {
+    if (day == dayBloom && state.currentFlowerType == FLOWER_NONE) {
         // 現在の成長タイプに応じて花の形を決定
         if (state.currentType == TYPE_ELEGANT) state.currentFlowerType = FLOWER_CRYSTAL;
         else if (state.currentType == TYPE_STURDY) state.currentFlowerType = FLOWER_PETAL;
@@ -2122,7 +2130,6 @@ void ofApp::checkEvolution() {
 
         state.evo.hasEvolvedFlower = true;
         spawn2DEffect(P_BLOOM);
-        ofLogNotice("Evolution") << "Flower Evolved: " << state.currentFlowerType;
     }
 }
 

@@ -649,10 +649,14 @@ void ofApp::spawn2DEffect(ParticleType type) {
         }break;
 
         case P_KOTODAMA: {
-            p.color = ofColor(220, 180, 255);
+            auto& k = config["effects"]["kotodama"];
+            auto c = config["tree"]["colors"]["elegant"];
+            p.color = ofColor(c[0], c[1], c[2]);
             p.decay = ofRandom(0.01f, 0.02f);
             p.angle = ofRandom(TWO_PI);
-            p.spiralRadius = ofRandom(0.1f, 0.6f) * glm::length(glm::vec2(sw, sh));
+            p.size = ofRandom(10, 20) * screenScale;
+            float screenDiag = glm::length(glm::vec2(sw, sh));
+            p.spiralRadius = ofRandom(k.value("min_radius_ratio", 0.4f), k.value("max_radius_ratio", 0.8f)) * screenDiag;
             p.life = 1.0f;
         }break;
 
@@ -682,6 +686,7 @@ void ofApp::triggerAura(ofColor col) {
     state.auraColor = col;
     auraBeams.clear();
 
+    auto& a = config["effects"]["aura"];
     float treeH = myTree.getLen() * config["camera"].value("height_factor", 3.5f);
     float effectScale = std::max(1.0f, treeH / 200.0f);
 
@@ -850,22 +855,25 @@ void ofApp::processCommand(int key) {
 void ofApp::upgradeGrowth() { 
     int cost = config["game"]["skill_costs"].value("growth", 1);
     if (state.skillPoints >= cost && growthLevel < 5) {
-        growthLevel++; state.skillPoints--;
-        triggerAura(ofColor(180, 220, 255));
+        growthLevel++; state.skillPoints--; 
+        auto c = config["tree"]["colors"]["aura_growth"];
+        triggerAura(ofColor(c[0], c[1], c[2]));
     } 
 }
 void ofApp::upgradeResist() {
     int cost = config["game"]["skill_costs"].value("resist", 1);
     if (state.skillPoints >= cost && chaosResistLevel < 5) { 
         chaosResistLevel++; state.skillPoints--; 
-        triggerAura(ofColor(150, 255, 100));
+        auto c = config["tree"]["colors"]["aura_resist"];
+        triggerAura(ofColor(c[0], c[1], c[2]));
     } 
 }
 void ofApp::upgradeCatalyst() {
     int cost = config["game"]["skill_costs"].value("catalyst", 1);
     if (state.skillPoints >= cost && bloomCatalystLevel < 5) { 
         bloomCatalystLevel++; state.skillPoints--; 
-        triggerAura(ofColor(255, 150, 200));
+        auto c = config["tree"]["colors"]["aura_catalyst"];
+        triggerAura(ofColor(c[0], c[1], c[2]));
     } 
 }
 
@@ -880,20 +888,14 @@ void ofApp::checkEvolution() {
         float T = myTree.getTotalThickEarned();
         float M = myTree.getTotalMutationEarned();
 
-        // 最大の蓄積値を持つパラメタに応じて分岐
         if (L >= T && L >= M) state.currentType = TYPE_ELEGANT;
         else if (T >= L && T >= M) state.currentType = TYPE_STURDY;
         else state.currentType = TYPE_ELDRITCH;
 
-        // 木に進化を適用
         myTree.applyEvolution(state.currentType);
-        state.evo.hasEvolvedType = true; // フラグを立てる (修正点)
+        state.evo.hasEvolvedType = true;
         state.evo.type = state.currentType;
-
-        // 進化演出：パーティクル放出
         spawn2DEffect(P_BLOOM);
-
-        ofLogNotice("Evolution") << "Tree evolved into Type: " << state.currentType;
     }
     if (day == dayBloom && state.currentFlowerType == FLOWER_NONE) {
         // 現在の成長タイプに応じて花の形を決定
@@ -903,7 +905,6 @@ void ofApp::checkEvolution() {
 
         state.evo.hasEvolvedFlower = true;
         spawn2DEffect(P_BLOOM);
-        ofLogNotice("Evolution") << "Flower Evolved: " << state.currentFlowerType;
     }
 }
 

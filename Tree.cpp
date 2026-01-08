@@ -186,7 +186,7 @@ void Tree::addStemToMesh(float r1, float r2, float h, glm::mat4 mat, int chaosRe
             glm::vec4 p(unitPos.x * currentR, currentY, unitPos.z * currentR, 1);
 
             // カオス度が高い場合の頂点ノイズ（最上段に近いほど強く揺らす）
-            if (maxMutationReached > 0.5f && ring > 0) {
+            if (maxMutationReached > 0.90f && ring > 0) {
                 float nStr = ofMap(maxMutationReached, 0.5, 1.0, 0, 120.0f, true) * ratio;
                 p.x += ofSignedNoise(p.x * 0.1, p.y * 0.1, ofGetElapsedTimef()) * nStr;
                 p.z += ofSignedNoise(p.z * 0.1, p.y * 0.1, ofGetElapsedTimef() + 10) * nStr;
