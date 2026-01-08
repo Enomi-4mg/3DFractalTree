@@ -318,26 +318,44 @@ void ofApp::drawLeftStatusPanel(float scale) {
 
 void ofApp::drawRightGrowthSlots(float scale) {
     float panelW = 200;
+    float btnH = 60;
+    float spacing = 70;
+
     ofPushMatrix();
-    ofTranslate(ofGetWidth() - (panelW * scale) - 20, ofGetHeight() / 2 - 100 * scale);
+    ofTranslate(ofGetWidth() - (panelW * scale) - 20, ofGetHeight() / 2 - (spacing * 1.5f) * scale);
     ofScale(scale, scale);
+
+    hoveredSkillIndex = -1; // リセット
+    // マウス座標をUI空間に変換
+    float mx = (ofGetMouseX() - (ofGetWidth() - (panelW * scale) - 20)) / scale;
+    float my = (ofGetMouseY() - (ofGetHeight() / 2 - (spacing * 1.5f) * scale)) / scale;
 
     string names[] = { "GROWTH", "RESIST", "CATALYST" };
     int levels[] = { growthLevel, chaosResistLevel, bloomCatalystLevel };
-    int cost = 1; // JSONから取得
+    int cost = 1;
 
     for (int i = 0; i < 3; i++) {
+        float by = i * spacing;
+        bool isHovered = (mx >= 0 && mx <= panelW && my >= by && my <= by + btnH);
         bool canAfford = (state.skillPoints >= cost);
-        ofSetColor(canAfford ? ofColor(100, 150, 255, 200) : ofColor(40, 150));
-        ofDrawRectRounded(0, i * 70, panelW, 60, 5);
+
+        if (isHovered) {
+            hoveredSkillIndex = i; // ホバー中のインデックスを保持
+        }
+
+        // 色の決定
+        ofColor bCol = canAfford ? ofColor(100, 150, 255, 180) : ofColor(60, 150);
+        if (isHovered && canAfford) bCol = ofColor(150, 200, 255, 255); // ホバー時は明るく
+
+        ofSetColor(bCol);
+        ofDrawRectRounded(0, by, panelW, btnH, 5);
 
         ofSetColor(255);
-        mainFont.drawString(names[i], 10, i * 70 + 25);
-        mainFont.drawString("LV." + ofToString(levels[i]), 10, i * 70 + 48);
-        mainFont.drawString("COST: " + ofToString(cost), panelW - 80, i * 70 + 48);
+        mainFont.drawString(names[i], 10, by + 25);
+        mainFont.drawString("LV." + ofToString(levels[i]), 10, by + 48);
+        mainFont.drawString("COST: " + ofToString(cost), panelW - 80, by + 48);
     }
-
-    // スキルポイント残高
+    // ... スキルポイント表示 ...
     ofSetColor(255, 200, 0);
     mainFont.drawString("SKILL POINTS: " + ofToString(state.skillPoints), 0, -20);
     ofPopMatrix();
@@ -641,6 +659,43 @@ void ofApp::spawn2DEffect(ParticleType type) {
     }
 }
 
+void ofApp::drawAura() {
+    if (state.auraTimer <= 0) return;
+
+    ofPushStyle();
+    ofEnableBlendMode(OF_BLENDMODE_ADD); // 加算合成で光を表現
+
+    // 進化状態に応じた色の決定
+    ofColor auraCol = ofColor(255, 255, 200); // デフォルト
+    if (state.currentType == TYPE_ELEGANT) auraCol = state.ui.colElegant;
+    else if (state.currentType == TYPE_STURDY) auraCol = state.ui.colSturdy;
+    else if (state.currentType == TYPE_ELDRITCH) auraCol = state.ui.colEldritch;
+
+    float progress = state.auraTimer / config["ui"]["aura"].value("duration", 1.5f);
+    float flicker = (0.7f + 0.3f * sin(ofGetElapsedTimef() * 20.0f)); // 激しい明滅
+
+    for (auto& b : auraBeams) {
+        // 常に上昇し続けるアニメーション
+        float yOffset = fmod(ofGetElapsedTimef() * b.speed * 100.0f, 2000.0f);
+
+        ofPushMatrix();
+        ofTranslate(b.x, -yOffset + 1000, b.z); // 下から上へ移動
+
+        // 中心（明るい）
+        ofSetColor(255, 255, 255, 200 * progress * flicker);
+        ofDrawRectangle(-b.width * 0.1, 0, b.width * 0.2, b.height);
+
+        // 外側（タイプカラー）
+        ofSetColor(auraCol, 150 * progress * flicker);
+        ofDrawRectangle(-b.width * 0.5, 0, b.width, b.height);
+
+        ofPopMatrix();
+    }
+
+    ofDisableBlendMode();
+    ofPopStyle();
+}
+
 void ofApp::executeCommand(CommandType type) {
     // クールタイム中、またはゲーム終了後は実行不可
     if (state.actionCooldown > 0 || state.bGameEnded || state.bViewMode) return;
@@ -819,6 +874,11 @@ void ofApp::mousePressed(int x, int y, int button) {
     if (hoveredButtonIndex != -1) {
         CommandType types[] = { CMD_WATER, CMD_FERTILIZER, CMD_KOTODAMA };
         executeCommand(types[hoveredButtonIndex]);
+    }
+    if (hoveredSkillIndex != -1) {
+        if (hoveredSkillIndex == 0) upgradeGrowth();
+        else if (hoveredSkillIndex == 1) upgradeResist();
+        else if (hoveredSkillIndex == 2) upgradeCatalyst();
     }
 }
 

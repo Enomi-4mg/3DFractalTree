@@ -514,19 +514,27 @@ public:
 </file>
 
 <file path="Constants.h">
-// Constants.h
 #pragma once
 #include "ofMain.h"
 
 enum GrowthType { TYPE_DEFAULT, TYPE_ELEGANT, TYPE_STURDY, TYPE_ELDRITCH };
 enum FlowerType { FLOWER_NONE, FLOWER_CRYSTAL, FLOWER_PETAL, FLOWER_SPIRIT };
 enum CommandType { CMD_WATER, CMD_FERTILIZER, CMD_KOTODAMA };
-
 enum BarState { BAR_IDLE, BAR_LEVEL_UP_FLASH, BAR_RESET_WAIT };
+enum ParticleType { P_WATER, P_FERTILIZER, P_KOTODAMA, P_RAIN_SPLASH, P_BLOOM };
+
+// --- データ構造定義 ---
+struct AuraBeam {
+    float x, z;
+    float width;
+    float speed;
+    float offset;
+    float height;
+};
 
 struct EvolutionFlags {
-    bool hasEvolvedType = false;   // Day 20達成フラグ
-    bool hasEvolvedFlower = false; // Day 40達成フラグ
+    bool hasEvolvedType = false;
+    bool hasEvolvedFlower = false;
     GrowthType type = TYPE_DEFAULT;
 };
 
@@ -556,21 +564,21 @@ struct GameState {
     bool bGameEnded = false;
     bool bViewMode = false;
     bool bShowDebug = false;
-    bool bTimeFrozen = false;      // 時間（日数）の進行を停止
-    bool bInfiniteSkills = false;  // スキルポイントを無限化
+    bool bTimeFrozen = false;
+    bool bInfiniteSkills = false;
     string finalTitle = "";
     int maxDays = 50;
     GrowthType currentType = TYPE_DEFAULT;
     FlowerType currentFlowerType = FLOWER_NONE;
-    int resilienceLevel = 0; 
+    int resilienceLevel = 0;
     float actionCooldown = 0.0f;
     UISettings ui;
 
-    EvolutionFlags evo;             // 進化フラグ
-    BarState barState = BAR_IDLE;   // バーの状態
-    float barFlashTimer = 0.0f;     // バーの発光用
-    float auraTimer = 0.0f;         // オーラ演出用
-    float levelUpBubbleTimer = 0.0f;// 「LEVEL UP!」吹き出し用
+    EvolutionFlags evo;
+    BarState barState = BAR_IDLE;
+    float barFlashTimer = 0.0f;
+    float auraTimer = 0.0f;
+    float levelUpBubbleTimer = 0.0f;
 };
 </file>
 
@@ -582,9 +590,6 @@ struct GameState {
 #include "..\Weather.h"
 #include "..\Ground.h"
 #include "../Particle.h"
-
-
-enum ParticleType { P_WATER, P_FERTILIZER, P_KOTODAMA, P_RAIN_SPLASH, P_BLOOM };
 
 struct Particle2D {
 	glm::vec2 pos, vel;
@@ -603,11 +608,11 @@ struct Particle2D {
 		if (type == P_RAIN_SPLASH) {
 			ofSetLineWidth(2);
 			ofNoFill();
-			ofDrawEllipse(pos, size * (1.0 - life) * 2.0, size * (1.0 - life)); // 広がる波紋
+			ofDrawEllipse(pos, size * (1.0 - life) * 2.0, size * (1.0 - life));
 			ofFill();
 		}
 		else {
-			ofDrawCircle(pos, size * (life + 0.2)); // 徐々に小さくなる円
+			ofDrawCircle(pos, size * (life + 0.2));
 		}
 	}
 };
@@ -619,12 +624,12 @@ class ofApp : public ofBaseApp{
 		void update();
 		void draw();
 		void keyPressed(int key);
+		void mousePressed(int x, int y, int button);
 
 		// --- 各種イベント ---
 		void keyReleased(int key);
 		void mouseMoved(int x, int y );
 		void mouseDragged(int x, int y, int button);
-		void mousePressed(int x, int y, int button);
 		void mouseReleased(int x, int y, int button);
 		void mouseEntered(int x, int y);
 		void mouseExited(int x, int y);
@@ -633,47 +638,36 @@ class ofApp : public ofBaseApp{
 		void gotMessage(ofMessage msg);
 
 	private:
-		// UIコンポーネントの分割
+		// ... UI描画メソッド群 ...
 		void drawHUD();
-
 		void drawRightGrowthSlots(float scale);
 		void drawLeftStatusPanel(float scale);
 		void drawCenterMessage(float scale);
-
 		void drawStatusPanel();
-		void drawControlPanel();
-		void drawViewModeOverlay();
-		void drawDebugOverlay();
-		ofTrueTypeFont mainFont;
-		float getUIScale();
-		void drawDualParamBar(string label, float x, float y, float w, float currentRatio, float maxRatio, ofColor col);
-		// GUI
-		void executeCommand(CommandType type);
 		void drawBottomActionBar();
-		int hoveredButtonIndex = -1;
+		void drawAura(); // 新設：オーラ描画用
 
+		// ... ユーティリティ ...
+		float getUIScale();
+		void executeCommand(CommandType type);
 		void updateCamera();
-		void processCommand(int key);
 		void setupLighting();
-		void spawnBloomParticles();
 		void spawn2DEffect(ParticleType type);
 
 		// --- スキル処理 ---
 		void upgradeGrowth();
 		void upgradeResist();
-		void upgradeCatalyst(); 
-
-
+		void upgradeCatalyst();
 		void checkEvolution();
 
-		// --- システム変数と設定 ---
+		// --- システム変数 ---
 		ofJson config;
+		ofTrueTypeFont mainFont;
 		GameState state;
-		float camAutoRotation = 0;
-		float visualDepthProgress = 0;
-		int lastDepthLevel = 0;
+		int hoveredSkillIndex = -1;
+		vector<AuraBeam> auraBeams; // Constants.hの定義を使用
 
-		// --- オブジェクト群 ---
+		// ... オブジェクト ...
 		Tree myTree;
 		Weather weather;
 		Ground ground;
@@ -686,6 +680,21 @@ class ofApp : public ofBaseApp{
 		ofxPanel gui;
 		ofParameter<int> growthLevel, chaosResistLevel, bloomCatalystLevel;
 		ofxButton btnGrowth, btnResist, btnCatalyst;
+
+		void drawControlPanel();
+		void drawViewModeOverlay();
+		void drawDebugOverlay();
+		void drawDualParamBar(string label, float x, float y, float w, float currentRatio, float maxRatio, ofColor col);
+		// GUI
+		int hoveredButtonIndex = -1;
+
+		void processCommand(int key);
+		void spawnBloomParticles();
+
+		// --- システム変数と設定 ---
+		float camAutoRotation = 0;
+		float visualDepthProgress = 0;
+		int lastDepthLevel = 0;
 };
 </file>
 
@@ -1459,26 +1468,44 @@ void ofApp::drawLeftStatusPanel(float scale) {
 
 void ofApp::drawRightGrowthSlots(float scale) {
     float panelW = 200;
+    float btnH = 60;
+    float spacing = 70;
+
     ofPushMatrix();
-    ofTranslate(ofGetWidth() - (panelW * scale) - 20, ofGetHeight() / 2 - 100 * scale);
+    ofTranslate(ofGetWidth() - (panelW * scale) - 20, ofGetHeight() / 2 - (spacing * 1.5f) * scale);
     ofScale(scale, scale);
+
+    hoveredSkillIndex = -1; // リセット
+    // マウス座標をUI空間に変換
+    float mx = (ofGetMouseX() - (ofGetWidth() - (panelW * scale) - 20)) / scale;
+    float my = (ofGetMouseY() - (ofGetHeight() / 2 - (spacing * 1.5f) * scale)) / scale;
 
     string names[] = { "GROWTH", "RESIST", "CATALYST" };
     int levels[] = { growthLevel, chaosResistLevel, bloomCatalystLevel };
-    int cost = 1; // JSONから取得
+    int cost = 1;
 
     for (int i = 0; i < 3; i++) {
+        float by = i * spacing;
+        bool isHovered = (mx >= 0 && mx <= panelW && my >= by && my <= by + btnH);
         bool canAfford = (state.skillPoints >= cost);
-        ofSetColor(canAfford ? ofColor(100, 150, 255, 200) : ofColor(40, 150));
-        ofDrawRectRounded(0, i * 70, panelW, 60, 5);
+
+        if (isHovered) {
+            hoveredSkillIndex = i; // ホバー中のインデックスを保持
+        }
+
+        // 色の決定
+        ofColor bCol = canAfford ? ofColor(100, 150, 255, 180) : ofColor(60, 150);
+        if (isHovered && canAfford) bCol = ofColor(150, 200, 255, 255); // ホバー時は明るく
+
+        ofSetColor(bCol);
+        ofDrawRectRounded(0, by, panelW, btnH, 5);
 
         ofSetColor(255);
-        mainFont.drawString(names[i], 10, i * 70 + 25);
-        mainFont.drawString("LV." + ofToString(levels[i]), 10, i * 70 + 48);
-        mainFont.drawString("COST: " + ofToString(cost), panelW - 80, i * 70 + 48);
+        mainFont.drawString(names[i], 10, by + 25);
+        mainFont.drawString("LV." + ofToString(levels[i]), 10, by + 48);
+        mainFont.drawString("COST: " + ofToString(cost), panelW - 80, by + 48);
     }
-
-    // スキルポイント残高
+    // ... スキルポイント表示 ...
     ofSetColor(255, 200, 0);
     mainFont.drawString("SKILL POINTS: " + ofToString(state.skillPoints), 0, -20);
     ofPopMatrix();
@@ -1782,6 +1809,43 @@ void ofApp::spawn2DEffect(ParticleType type) {
     }
 }
 
+void ofApp::drawAura() {
+    if (state.auraTimer <= 0) return;
+
+    ofPushStyle();
+    ofEnableBlendMode(OF_BLENDMODE_ADD); // 加算合成で光を表現
+
+    // 進化状態に応じた色の決定
+    ofColor auraCol = ofColor(255, 255, 200); // デフォルト
+    if (state.currentType == TYPE_ELEGANT) auraCol = state.ui.colElegant;
+    else if (state.currentType == TYPE_STURDY) auraCol = state.ui.colSturdy;
+    else if (state.currentType == TYPE_ELDRITCH) auraCol = state.ui.colEldritch;
+
+    float progress = state.auraTimer / config["ui"]["aura"].value("duration", 1.5f);
+    float flicker = (0.7f + 0.3f * sin(ofGetElapsedTimef() * 20.0f)); // 激しい明滅
+
+    for (auto& b : auraBeams) {
+        // 常に上昇し続けるアニメーション
+        float yOffset = fmod(ofGetElapsedTimef() * b.speed * 100.0f, 2000.0f);
+
+        ofPushMatrix();
+        ofTranslate(b.x, -yOffset + 1000, b.z); // 下から上へ移動
+
+        // 中心（明るい）
+        ofSetColor(255, 255, 255, 200 * progress * flicker);
+        ofDrawRectangle(-b.width * 0.1, 0, b.width * 0.2, b.height);
+
+        // 外側（タイプカラー）
+        ofSetColor(auraCol, 150 * progress * flicker);
+        ofDrawRectangle(-b.width * 0.5, 0, b.width, b.height);
+
+        ofPopMatrix();
+    }
+
+    ofDisableBlendMode();
+    ofPopStyle();
+}
+
 void ofApp::executeCommand(CommandType type) {
     // クールタイム中、またはゲーム終了後は実行不可
     if (state.actionCooldown > 0 || state.bGameEnded || state.bViewMode) return;
@@ -1895,9 +1959,27 @@ void ofApp::processCommand(int key) {
 //--------------------------------------------------------------
 
 // --- スキル処理 ---
-void ofApp::upgradeGrowth() { if (state.skillPoints > 0 && growthLevel < 5) { growthLevel++; state.skillPoints--; } }
-void ofApp::upgradeResist() { if (state.skillPoints > 0 && chaosResistLevel < 5) { chaosResistLevel++; state.skillPoints--; } }
-void ofApp::upgradeCatalyst() { if (state.skillPoints > 0 && bloomCatalystLevel < 5) { bloomCatalystLevel++; state.skillPoints--; } }
+void ofApp::upgradeGrowth() { 
+    if (state.skillPoints > 0 && growthLevel < 5) { 
+        growthLevel++; state.skillPoints--; 
+        state.auraTimer = config["ui"]["aura"].value("duration", 1.5f); // オーラタイマー始動
+        spawn2DEffect(P_BLOOM);
+    } 
+}
+void ofApp::upgradeResist() { 
+    if (state.skillPoints > 0 && chaosResistLevel < 5) { 
+        chaosResistLevel++; state.skillPoints--; 
+        state.auraTimer = config["ui"]["aura"].value("duration", 1.5f); // オーラタイマー始動
+        spawn2DEffect(P_BLOOM);
+    } 
+}
+void ofApp::upgradeCatalyst() { 
+    if (state.skillPoints > 0 && bloomCatalystLevel < 5) { 
+        bloomCatalystLevel++; state.skillPoints--; 
+        state.auraTimer = config["ui"]["aura"].value("duration", 1.5f); // オーラタイマー始動
+        spawn2DEffect(P_BLOOM);
+    } 
+}
 
 void ofApp::checkEvolution() {
     int day = myTree.getDayCount();
@@ -1942,6 +2024,11 @@ void ofApp::mousePressed(int x, int y, int button) {
     if (hoveredButtonIndex != -1) {
         CommandType types[] = { CMD_WATER, CMD_FERTILIZER, CMD_KOTODAMA };
         executeCommand(types[hoveredButtonIndex]);
+    }
+    if (hoveredSkillIndex != -1) {
+        if (hoveredSkillIndex == 0) upgradeGrowth();
+        else if (hoveredSkillIndex == 1) upgradeResist();
+        else if (hoveredSkillIndex == 2) upgradeCatalyst();
     }
 }
 

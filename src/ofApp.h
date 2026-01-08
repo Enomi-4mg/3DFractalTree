@@ -79,6 +79,7 @@ class ofApp : public ofBaseApp{
 		ofJson config;
 		ofTrueTypeFont mainFont;
 		GameState state;
+		int hoveredSkillIndex = -1;
 		vector<AuraBeam> auraBeams; // Constants.hの定義を使用
 
 		// ... オブジェクト ...
