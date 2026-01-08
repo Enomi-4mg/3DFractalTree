@@ -50,6 +50,8 @@ void ofApp::setup() {
     state.bShowDebug = false;
 
     myTree.setup(config);
+    lastDepthLevel = myTree.getDepthLevel();
+
     weather.setup();
     ground.setup();
 
@@ -93,6 +95,10 @@ void ofApp::update() {
         else state.finalTitle = "Great Spirit Tree";
     }
 
+    if (state.bShowDebug && state.bInfiniteSkills) {
+        state.skillPoints = 99;
+    }
+
     myTree.update(growthLevel, chaosResistLevel, bloomCatalystLevel, state.currentType, state.currentFlowerType);
     weather.update();
 
@@ -109,6 +115,13 @@ void ofApp::update() {
         spawn2DEffect(P_RAIN_SPLASH);
     }
 
+    // レベルアップの検知ロジック
+    int currentLvl = myTree.getDepthLevel();
+    if (currentLvl > lastDepthLevel) {
+        state.barState = BAR_LEVEL_UP_FLASH; // バーの発光アニメーション開始
+        state.barFlashTimer = 0;
+        lastDepthLevel = currentLvl;
+    }
     // --- バーのアニメーション管理 ---
     if (state.barState == BAR_LEVEL_UP_FLASH) {
         state.barFlashTimer += ofGetLastFrameTime();
@@ -236,12 +249,6 @@ void ofApp::drawHUD() {
     ofPushMatrix();
     ofScale(scale, scale);
 
-    // 左上の日表示
-    ofSetColor(0, 180);
-    ofDrawRectangle(15, 15, 200, 35);
-    ofSetColor(255);
-    mainFont.drawString("DAY: " + ofToString(myTree.getDayCount()) + " / " + ofToString(state.maxDays), 25, 40);
-
     // スキルパネル（デバッグ表示がONの時のみ）
     if (state.bShowDebug) {
         drawControlPanel();
@@ -257,33 +264,54 @@ void ofApp::drawHUD() {
     drawBottomActionBar(); // 下部中央へ
 }
 
+string getFlowerName(FlowerType type) {
+    switch (type) {
+    case FLOWER_CRYSTAL: return "CRYSTAL";
+    case FLOWER_PETAL: return "PETAL";
+    case FLOWER_SPIRIT: return "SPIRIT";
+    default: return "NONE";
+    }
+}
+
+
 void ofApp::drawLeftStatusPanel(float scale) {
     ofPushMatrix();
     ofScale(scale, scale);
     ofTranslate(20, 20);
 
-    // 1. 天候バフ情報
+    // 0. 日数表示
     ofSetColor(255);
-    mainFont.drawString("WEATHER: " + weather.getName(), 0, 20);
+    string dayStr = "DAY: " + ofToString(myTree.getDayCount()) + " / " + ofToString(state.maxDays);
+    if (state.bTimeFrozen) dayStr += " (FROZEN)";
+    mainFont.drawString(dayStr, 0, 20);
+
+    // 1. 天候バフ情報 (Y座標を 50, 70 に離す)
+    ofSetColor(200, 230, 255);
+    mainFont.drawString("WEATHER: " + weather.getName(), 0, 50);
     ofSetColor(255, 255, 0);
     string buff = (weather.state == SUNNY) ? "Buff: Water+" : (weather.state == RAINY) ? "Buff: Fertilizer+" : "Buff: Kotodama+";
-    mainFont.drawString(buff, 0, 40);
+    mainFont.drawString(buff, 0, 70);
 
-    // 2. 進化達成の印 (フェーズ2の目玉)
-    float symbolY = 80;
+    // 2. 進化達成の印 (Y座標 110 から開始)
+    float symbolY = 110;
     auto drawSym = [&](bool active, string sym, ofColor col, string label) {
-        ofSetColor(active ? col : ofColor(60));
+        ofSetColor(active ? col : ofColor(80));
         mainFont.drawString(sym + " " + label, 0, symbolY);
         symbolY += 30;
         };
-
     drawSym(state.evo.hasEvolvedType && state.currentType == TYPE_ELEGANT, "◇", state.ui.colElegant, "ELEGANT");
     drawSym(state.evo.hasEvolvedType && state.currentType == TYPE_STURDY, "□", state.ui.colSturdy, "STURDY");
     drawSym(state.evo.hasEvolvedType && state.currentType == TYPE_ELDRITCH, "◎", state.ui.colEldritch, "ELDRITCH");
 
-    // 3. デバッグ情報のオーバーレイ (重なり許容)
+    drawSym(state.evo.hasEvolvedFlower, "✿", ofColor(255, 150, 200), "BLOOM: " + getFlowerName(state.currentFlowerType));
+
+    // 3. デバッグ設定のステータス表示
     if (state.bShowDebug) {
-        drawDebugOverlay(); // ここで詳細なスタッツを左側に描画
+        ofSetColor(255, 100, 100);
+        float dy = symbolY + 20;
+        mainFont.drawString(">> DEBUG ACTIVE <<", 0, dy);
+        mainFont.drawString(state.bInfiniteSkills ? "[P] INF SKILLS: ON" : "[P] INF SKILLS: OFF", 0, dy + 25);
+        mainFont.drawString("[+] ADD EXP (Test LevelUp)", 0, dy + 50);
     }
     ofPopMatrix();
 }
@@ -324,27 +352,20 @@ void ofApp::drawCenterMessage(float scale) {
 
     // 1. レベルアップの吹き出し ("LEVEL UP!")
     if (state.levelUpBubbleTimer > 0) {
-        // 残り時間に応じてフェードアウト
         float alpha = ofMap(state.levelUpBubbleTimer, 0, 1.5, 0, 255, true);
         string msg = "LEVEL UP!";
-
         float tw = mainFont.stringWidth(msg);
-        // 画面中央、木の少し上に配置
+
+        // 木の高さに依存せず、画面内の見やすい位置(中央より上)に固定
         float tx = (ofGetWidth() / scale) * 0.5f - tw * 0.5f;
-        float ty = (ofGetHeight() / scale) * 0.5f - 180; // 木の高さに合わせて調整
+        float ty = (ofGetHeight() / scale) * 0.35f; // 画面上部から35%の位置
 
-        // 吹き出しの背景（半透明の白）
         ofSetColor(255, 255, 255, alpha * 0.9);
-        ofDrawRectRounded(tx - 15, ty - 28, tw + 30, 40, 8);
+        ofDrawRectRounded(tx - 20, ty - 30, tw + 40, 45, 10);
+        ofDrawTriangle(tx + tw * 0.5f - 10, ty + 15, tx + tw * 0.5f + 10, ty + 15, tx + tw * 0.5f, ty + 35);
 
-        // 下向きの三角形（吹き出しのツノ部分）
-        ofDrawTriangle(tx + tw * 0.5f - 10, ty + 12,
-            tx + tw * 0.5f + 10, ty + 12,
-            tx + tw * 0.5f, ty + 25);
-
-        // テキスト（黒）
         ofSetColor(0, 0, 0, alpha);
-        mainFont.drawString(msg, tx, ty);
+        mainFont.drawString(msg, tx, ty + 5);
     }
 
     // 2. 進化完了メッセージ ("EVOLUTION COMPLETE")
@@ -484,7 +505,6 @@ void ofApp::drawControlPanel() {
     float panelW = 240; // 少し幅を広げる
     float panelH = 380; // 情報量に合わせて高くする
     ofTranslate(20 * scale, 120 * scale);
-    ofScale(scale, scale);
 
     // 背景
     ofSetColor(0, 0, 0, 180);
@@ -643,10 +663,13 @@ void ofApp::executeCommand(CommandType type) {
     }
 
     // 共通の後処理
-    myTree.incrementDay();
-    checkEvolution();
-    if (myTree.getDayCount() % g.value("skill_interval", 5) == 0) {
-        state.skillPoints++;
+    if (!state.bTimeFrozen) {
+        myTree.incrementDay();
+        checkEvolution();
+        if (myTree.getDayCount() % config["game"].value("skill_interval", 5) == 0) {
+            state.skillPoints++;
+        }
+        weather.randomize();
     }
     weather.randomize();
 
@@ -662,30 +685,6 @@ void ofApp::keyPressed(int key) {
         state.bViewMode = !state.bViewMode;
         state.bViewMode ? cam.enableMouseInput() : cam.disableMouseInput();
     }
-    if (state.bShowDebug) {
-        if (key == 'w' || key == 'W') weather.randomize();
-        // [T]キーで日数を一気に進める
-        if (key == 't' || key == 'T') {
-            for (int i = 0; i < 5; i++) {
-                myTree.incrementDay();
-                checkEvolution();
-            }
-        }
-        // [E]キーで強制的に特定の進化をテスト（例：ELDRITCH）
-        if (key == 'e' || key == 'E') {
-            state.currentType = TYPE_ELDRITCH;
-            myTree.applyEvolution(TYPE_ELDRITCH);
-        }
-        // [F]キーで強制的に開花状態をテスト
-        if (key == 'f' || key == 'F') {
-            state.currentFlowerType = FLOWER_SPIRIT;
-            myTree.incrementDay(); // 描画更新用
-        }
-        if (state.bShowDebug && key == '+') {
-            myTree.water(5.0, 0, 50.0);
-            myTree.fertilize(5.0, 0, 50.0);
-        }
-    }
     if (key == 'r' || key == 'R') {
         myTree.reset();
         particles.clear();
@@ -695,6 +694,35 @@ void ofApp::keyPressed(int key) {
         chaosResistLevel = 0;
         bloomCatalystLevel = 0;
         state.bGameEnded = false;
+    }
+    if (state.bShowDebug) {
+        if (key == 'w' || key == 'W') weather.randomize();
+        // [T]キーで日数を一気に進める
+        if (key == 't' || key == 'T') {
+            for (int i = 0; i < 5; i++) {
+                myTree.incrementDay();
+                checkEvolution();
+            }
+        }
+        /// [E] 成長タイプのサイクル
+        if (key == 'e' || key == 'E') {
+            state.currentType = static_cast<GrowthType>((state.currentType + 1) % 4);
+            myTree.applyEvolution(state.currentType);
+            state.evo.hasEvolvedType = true;
+            state.evo.type = state.currentType;
+        }
+        // [F] 花の形状のサイクル修正
+        if (key == 'f' || key == 'F') {
+            state.currentFlowerType = static_cast<FlowerType>((state.currentFlowerType + 1) % 4);
+            state.evo.hasEvolvedFlower = (state.currentFlowerType != FLOWER_NONE);
+            myTree.setNeedsUpdate(); // メッシュ再構築を強制
+        }
+        // [P] スキル無限トグル
+        if (key == 'p' || key == 'P') state.bInfiniteSkills = !state.bInfiniteSkills;
+        // [Space] 時間停止トグル
+        if (key == ' ') state.bTimeFrozen = !state.bTimeFrozen;
+        // [+] 経験値加算（レベルアップ演出のテスト用）
+        if (key == '+' || key == '=') myTree.addDebugExp(50.0f);
     }
     processCommand(key);
 }
@@ -726,9 +754,27 @@ void ofApp::processCommand(int key) {
 //--------------------------------------------------------------
 
 // --- スキル処理 ---
-void ofApp::upgradeGrowth() { if (state.skillPoints > 0 && growthLevel < 5) { growthLevel++; state.skillPoints--; } }
-void ofApp::upgradeResist() { if (state.skillPoints > 0 && chaosResistLevel < 5) { chaosResistLevel++; state.skillPoints--; } }
-void ofApp::upgradeCatalyst() { if (state.skillPoints > 0 && bloomCatalystLevel < 5) { bloomCatalystLevel++; state.skillPoints--; } }
+void ofApp::upgradeGrowth() { 
+    if (state.skillPoints > 0 && growthLevel < 5) { 
+        growthLevel++; state.skillPoints--; 
+        state.auraTimer = config["ui"]["aura"].value("duration", 1.5f); // オーラタイマー始動
+        spawn2DEffect(P_BLOOM);
+    } 
+}
+void ofApp::upgradeResist() { 
+    if (state.skillPoints > 0 && chaosResistLevel < 5) { 
+        chaosResistLevel++; state.skillPoints--; 
+        state.auraTimer = config["ui"]["aura"].value("duration", 1.5f); // オーラタイマー始動
+        spawn2DEffect(P_BLOOM);
+    } 
+}
+void ofApp::upgradeCatalyst() { 
+    if (state.skillPoints > 0 && bloomCatalystLevel < 5) { 
+        bloomCatalystLevel++; state.skillPoints--; 
+        state.auraTimer = config["ui"]["aura"].value("duration", 1.5f); // オーラタイマー始動
+        spawn2DEffect(P_BLOOM);
+    } 
+}
 
 void ofApp::checkEvolution() {
     int day = myTree.getDayCount();
@@ -745,6 +791,8 @@ void ofApp::checkEvolution() {
 
         // 木に進化を適用
         myTree.applyEvolution(state.currentType);
+        state.evo.hasEvolvedType = true; // フラグを立てる (修正点)
+        state.evo.type = state.currentType;
 
         // 進化演出：パーティクル放出
         spawn2DEffect(P_BLOOM);
@@ -757,6 +805,7 @@ void ofApp::checkEvolution() {
         else if (state.currentType == TYPE_STURDY) state.currentFlowerType = FLOWER_PETAL;
         else state.currentFlowerType = FLOWER_SPIRIT;
 
+        state.evo.hasEvolvedFlower = true;
         spawn2DEffect(P_BLOOM);
         ofLogNotice("Evolution") << "Flower Evolved: " << state.currentFlowerType;
     }

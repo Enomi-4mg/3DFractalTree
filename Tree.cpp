@@ -127,17 +127,11 @@ void Tree::buildBranchMesh(float length, float thickness, int depth, glm::mat4 m
     // 枝の先端の行列を計算
     glm::mat4 tipMat = glm::translate(mat, glm::vec3(0, length, 0));
 
-    //float hueBase = ofMap(bMutation, 0, 1, s.trunkHueStart, s.trunkHueEnd);
-    //float finalHue = fmod(hueBase + (ofGetElapsedTimef() * (gType == TYPE_ELDRITCH ? 100.0f : 20.0f)) + (depth * 10), 255.0f);
-    //ofColor col = ofColor::fromHsb(finalHue, 160, 180 + (depth * 10));
-
-    //addJointToMesh(thickness * s.branchThickRatio, tipMat, col, depth);
-
     // --- 装飾（葉・花）のロジック ---
     float bloomThreshold = 0.4f - (bloomLevel * 0.05f);
     bool isBloomed = (maxMutationReached > bloomThreshold);
 
-    if (depth == 0 && isBloomed) {
+    if (depth == 0 && (isBloomed || fType != FLOWER_NONE)) {
         addFlowerToMesh(thickness, tipMat, fType);
     }
     else if (depth <= 1) {

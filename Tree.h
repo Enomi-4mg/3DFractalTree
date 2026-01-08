@@ -14,6 +14,8 @@ public:
     void kotodama(float buff);   // カオス度を上げる
     void applyEvolution(GrowthType type);
     void incrementDay() { if (dayCount < 50) dayCount++; }
+    void addDebugExp(float amt) { depthExp += amt; }
+    void setNeedsUpdate() { bNeedsUpdate = true; }
 
     // --- アクセサ・ユーティリティ ---
     float getLen() { return bLen; }
