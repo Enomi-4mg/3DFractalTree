@@ -527,7 +527,7 @@ enum CommandType { CMD_WATER, CMD_FERTILIZER, CMD_KOTODAMA };
 enum BarState { BAR_IDLE, BAR_LEVEL_UP_FLASH, BAR_RESET_WAIT };
 enum ParticleType { P_WATER, P_FERTILIZER, P_KOTODAMA, P_RAIN_SPLASH, P_BLOOM };
 
-// --- f[^\˘č` ---
+// --- データ構造定義 ---
 struct AuraBeam {
     float x, z;
     float width;
@@ -586,6 +586,7 @@ struct GameState {
     float auraTimer = 0.0f;
     float levelUpBubbleTimer = 0.0f;
     int lastCommandIndex = -1;
+    ofColor auraColor = ofColor(255, 255, 255);
 };
 
 struct Particle2D {
@@ -593,150 +594,49 @@ struct Particle2D {
     ofColor color;
     float size, life = 1.0f, decay;
     ParticleType type;
-    float angle = 0.0f; // žěĚůvZp
-    float spiralRadius = 0.0f; // ůĚťÝĚźa
+    float angle = 0.0f;
+    float spiralRadius = 0.0f; // 螺旋の初期半径
 
     void update(float dt) {
         if (type == P_KOTODAMA) {
-            // žěFůOšĚvZ
-            // źa $r = a + b\theta$ ÉîĂ­LŞč
-            angle += 5.0f * dt;
-            spiralRadius += 100.0f * dt;
-            pos.x = ofGetWidth() * 0.5f + cos(angle) * spiralRadius;
-            pos.y = ofGetHeight() * 0.5f + sin(angle) * spiralRadius;
-            size += 0.5f; // XÉĺŤ­
+            // 吸い込まれる螺旋ロジック
+            angle += 8.0f * dt;
+            // 寿命(life)が 1.0 -> 0.0 になるにつれて半径を縮小
+            float currentR = spiralRadius * life;
+            pos.x = ofGetWidth() * 0.5f + cos(angle) * currentR;
+            pos.y = ofGetHeight() * 0.5f + sin(angle) * currentR;
+            // サイズ：最初は大きく、徐々に小さく (25 -> 2)
+            size = ofMap(life, 1.0f, 0.0f, 25.0f, 2.0f, true);
+        }
+        else if (type == P_RAIN_SPLASH) {
+            // 波紋：位置固定、寿命のみ減衰
         }
         else {
-            pos += vel;
+            pos += vel * (dt * 60.0f);
         }
-        life -= decay;
+        life -= decay * (dt * 60.0f);
     }
 
     void draw() {
-        // 1. wĘĚeiFŤüăj
-        ofSetColor(0, 0, 0, life * 100);
-        ofDrawCircle(pos, size * 1.2f);
-
-        // 2. {ĚiÁZŹÍÄŃoľ¤Ĺ§äj
-        ofSetColor(color, life * 255);
-        ofDrawCircle(pos, size);
+        if (type == P_RAIN_SPLASH) {
+            // 復活：雨の波紋（広がる楕円）
+            ofPushStyle();
+            ofNoFill();
+            ofSetLineWidth(2);
+            ofSetColor(color, life * 150);
+            float rippleW = (1.0f - life) * size * 4.0f;
+            float rippleH = (1.0f - life) * size * 2.0f;
+            ofDrawEllipse(pos, rippleW, rippleH);
+            ofPopStyle();
+        }
+        else {
+            // 通常の加算合成用の光る玉
+            ofSetColor(0, 0, 0, life * 100); // 視認性用影
+            ofDrawCircle(pos, size * 1.2f);
+            ofSetColor(color, life * 255);
+            ofDrawCircle(pos, size);
+        }
     }
-};
-</file>
-
-<file path="src/ofApp.h">
-#pragma once
-#include "ofMain.h"
-#include "ofxGui.h"
-#include "..\Tree.h"
-#include "..\Weather.h"
-#include "..\Ground.h"
-#include "../Particle.h"
-
-//struct Particle2D {
-//	glm::vec2 pos, vel;
-//	ofColor color;
-//	float size, life = 1.0, decay;
-//	ParticleType type;
-//
-//	void update() {
-//		pos += vel;
-//		if (type == P_FERTILIZER) pos.x += sin(ofGetElapsedTimef() * 5.0) * 2.0;
-//		life -= decay;
-//	}
-//
-//	void draw() {
-//		ofSetColor(color, life * 255);
-//		if (type == P_RAIN_SPLASH) {
-//			ofSetLineWidth(2);
-//			ofNoFill();
-//			ofDrawEllipse(pos, size * (1.0 - life) * 2.0, size * (1.0 - life));
-//			ofFill();
-//		}
-//		else {
-//			ofDrawCircle(pos, size * (life + 0.2));
-//		}
-//	}
-//};
-
-class ofApp : public ofBaseApp{
-	public:
-		// --- 標準イベント ---
-		void setup();
-		void update();
-		void draw();
-		void keyPressed(int key);
-		void mousePressed(int x, int y, int button);
-
-		// --- 各種イベント ---
-		void keyReleased(int key);
-		void mouseMoved(int x, int y );
-		void mouseDragged(int x, int y, int button);
-		void mouseReleased(int x, int y, int button);
-		void mouseEntered(int x, int y);
-		void mouseExited(int x, int y);
-		void windowResized(int w, int h);
-		void dragEvent(ofDragInfo dragInfo);
-		void gotMessage(ofMessage msg);
-
-	private:
-		// ... UI描画メソッド群 ...
-		void drawHUD();
-		void drawRightGrowthSlots(float scale);
-		void drawLeftStatusPanel(float scale);
-		void drawCenterMessage(float scale);
-		void drawStatusPanel();
-		void drawBottomActionBar();
-		void drawAura(); // 新設：オーラ描画用
-
-		// ... ユーティリティ ...
-		float getUIScale();
-		void executeCommand(CommandType type);
-		void updateCamera();
-		void setupLighting();
-		void spawn2DEffect(ParticleType type);
-
-		// --- スキル処理 ---
-		void upgradeGrowth();
-		void upgradeResist();
-		void upgradeCatalyst();
-		void checkEvolution();
-
-		// --- システム変数 ---
-		ofJson config;
-		ofTrueTypeFont mainFont;
-		GameState state;
-		int hoveredSkillIndex = -1;
-		vector<AuraBeam> auraBeams; // Constants.hの定義を使用
-
-		// ... オブジェクト ...
-		Tree myTree;
-		Weather weather;
-		Ground ground;
-		ofEasyCam cam;
-		ofLight light;
-		vector<Particle> particles;
-		vector<Particle2D> particles2D;
-
-		// --- GUI ---
-		ofxPanel gui;
-		ofParameter<int> growthLevel, chaosResistLevel, bloomCatalystLevel;
-		ofxButton btnGrowth, btnResist, btnCatalyst;
-
-		void drawControlPanel();
-		void drawViewModeOverlay();
-		void drawDebugOverlay();
-		void drawDualParamBar(string label, float x, float y, float w, float currentRatio, float maxRatio, ofColor col);
-		// GUI
-		int hoveredButtonIndex = -1;
-
-		void processCommand(int key);
-		void spawnBloomParticles();
-
-		// --- システム変数と設定 ---
-		float camAutoRotation = 0;
-		float visualDepthProgress = 0;
-		int lastDepthLevel = 0;
 };
 </file>
 
@@ -1186,6 +1086,123 @@ private:
     float baseAngle, mutationAngleMax;
     float trunkHueStart, trunkHueEnd;
     ofColor leafColor, flowerColor;*/
+};
+</file>
+
+<file path="src/ofApp.h">
+#pragma once
+#include "ofMain.h"
+#include "ofxGui.h"
+#include "..\Tree.h"
+#include "..\Weather.h"
+#include "..\Ground.h"
+#include "../Particle.h"
+
+//struct Particle2D {
+//	glm::vec2 pos, vel;
+//	ofColor color;
+//	float size, life = 1.0, decay;
+//	ParticleType type;
+//
+//	void update() {
+//		pos += vel;
+//		if (type == P_FERTILIZER) pos.x += sin(ofGetElapsedTimef() * 5.0) * 2.0;
+//		life -= decay;
+//	}
+//
+//	void draw() {
+//		ofSetColor(color, life * 255);
+//		if (type == P_RAIN_SPLASH) {
+//			ofSetLineWidth(2);
+//			ofNoFill();
+//			ofDrawEllipse(pos, size * (1.0 - life) * 2.0, size * (1.0 - life));
+//			ofFill();
+//		}
+//		else {
+//			ofDrawCircle(pos, size * (life + 0.2));
+//		}
+//	}
+//};
+
+class ofApp : public ofBaseApp{
+	public:
+		// --- 標準イベント ---
+		void setup();
+		void update();
+		void draw();
+		void keyPressed(int key);
+		void mousePressed(int x, int y, int button);
+
+		// --- 各種イベント ---
+		void keyReleased(int key);
+		void mouseMoved(int x, int y );
+		void mouseDragged(int x, int y, int button);
+		void mouseReleased(int x, int y, int button);
+		void mouseEntered(int x, int y);
+		void mouseExited(int x, int y);
+		void windowResized(int w, int h);
+		void dragEvent(ofDragInfo dragInfo);
+		void gotMessage(ofMessage msg);
+
+	private:
+		// ... UI描画メソッド群 ...
+		void drawHUD();
+		void drawRightGrowthSlots(float scale);
+		void drawLeftStatusPanel(float scale);
+		void drawCenterMessage(float scale);
+		void drawStatusPanel();
+		void drawBottomActionBar();
+		void drawAura();
+		void triggerAura(ofColor col);
+
+		// ... ユーティリティ ...
+		float getUIScale();
+		void executeCommand(CommandType type);
+		void updateCamera();
+		void setupLighting();
+		void spawn2DEffect(ParticleType type);
+
+		// --- スキル処理 ---
+		void upgradeGrowth();
+		void upgradeResist();
+		void upgradeCatalyst();
+		void checkEvolution();
+
+		// --- システム変数 ---
+		ofJson config;
+		ofTrueTypeFont mainFont;
+		GameState state;
+		int hoveredSkillIndex = -1;
+		vector<AuraBeam> auraBeams; // Constants.hの定義を使用
+
+		// ... オブジェクト ...
+		Tree myTree;
+		Weather weather;
+		Ground ground;
+		ofEasyCam cam;
+		ofLight light;
+		vector<Particle> particles;
+		vector<Particle2D> particles2D;
+
+		// --- GUI ---
+		ofxPanel gui;
+		ofParameter<int> growthLevel, chaosResistLevel, bloomCatalystLevel;
+		ofxButton btnGrowth, btnResist, btnCatalyst;
+
+		void drawControlPanel();
+		void drawViewModeOverlay();
+		void drawDebugOverlay();
+		void drawDualParamBar(string label, float x, float y, float w, float currentRatio, float maxRatio, ofColor col);
+		int hoveredButtonIndex = -1;
+
+		void processCommand(int key);
+		void spawnBloomParticles();
+
+		// --- システム変数と設定 ---
+		float camAutoRotation = 0;
+		float visualDepthProgress = 0;
+		int lastDepthLevel = 0;
+		ofColor auraColor;
 };
 </file>
 
@@ -1813,6 +1830,10 @@ void ofApp::drawViewModeOverlay() {
 
 // 演出生成の実装
 void ofApp::spawn2DEffect(ParticleType type) {
+    float sw = ofGetWidth();
+    float sh = ofGetHeight();
+    float screenScale = getUIScale();
+
     int count = (type == P_RAIN_SPLASH) ? 1 : 60;
 
     for (int i = 0; i < count; i++) {
@@ -1822,17 +1843,17 @@ void ofApp::spawn2DEffect(ParticleType type) {
         switch (type) {
         case P_WATER: {
             p.pos = { (float)ofRandomWidth(), -20.0f };
-            p.vel = { ofRandom(-3, 3), ofRandom(10, 20) };
+            p.vel = { ofRandom(-2, 2) * screenScale, ofRandom(8, 15) * screenScale };
             p.color = ofColor(120, 200, 255);
-            p.size = ofRandom(3, 8);
-            p.decay = ofRandom(0.01, 0.03);
+            p.size = ofRandom(12, 22) * screenScale;
+            p.decay = ofRandom(0.004, 0.008);
         }break;
 
         case P_FERTILIZER: {
-            p.pos = { (float)ofRandomWidth(), (float)ofGetHeight() + 20.0f };
+            p.pos = { (float)ofRandom(sw), (float)ofRandom(sh * 0.85f, sh) };
             p.vel = { ofRandom(-4, 4), ofRandom(-8.0f, -4.0f) };
             p.color = ofColor(180, 255, 100);
-            p.size = ofRandom(8, 15);
+            p.size = ofRandom(10, 20) * screenScale;
             p.decay = ofRandom(0.005, 0.015);
         }break;
 
@@ -1844,13 +1865,15 @@ void ofApp::spawn2DEffect(ParticleType type) {
             p.color = ofColor(200, 160, 255);
             p.size = ofRandom(10, 30);
             p.decay = ofRandom(0.02, 0.04);
+            p.spiralRadius = ofRandom(0.3f, 0.6f) * glm::length(glm::vec2(sw, sh));
+            p.life = 1.0f;
         }break;
 
         case P_RAIN_SPLASH: {
             p.pos = { ofRandomWidth(), ofRandom(ofGetHeight() * 0.8, ofGetHeight()) };
             p.vel = { 0, 0 };
             p.color = ofColor(150, 180, 255, 100);
-            p.size = ofRandom(5, 15);
+            p.size = ofRandom(8, 16);
             p.decay = 0.05;
         }break;
 
@@ -1867,32 +1890,56 @@ void ofApp::spawn2DEffect(ParticleType type) {
     }
 }
 
+// ヘルパー関数を追加：オーラ演出をトリガーする
+void ofApp::triggerAura(ofColor col) {
+    state.auraColor = col;
+    auraBeams.clear();
+
+    float treeH = myTree.getLen() * config["camera"].value("height_factor", 3.5f);
+    float effectScale = std::max(1.0f, treeH / 200.0f);
+
+    int count = config["ui"]["aura"].value("beam_count", 15);
+    for (int i = 0; i < count; i++) {
+        AuraBeam b;
+        b.x = ofRandom(-150, 150) * effectScale;
+        b.z = ofRandom(-150, 150) * effectScale;
+        b.width = ofRandom(10, 30) * effectScale;
+        b.speed = ofRandom(2, 6); 
+        b.height = ofRandom(treeH * 1.2f,treeH * 1.2f + 200);
+        auraBeams.push_back(b);
+    }
+    state.auraTimer = config["ui"]["aura"].value("duration", 1.8f);
+}
+
+// 描画メソッドの修正（十字板構造）
 void ofApp::drawAura() {
     if (state.auraTimer <= 0) return;
 
     ofPushStyle();
     ofEnableBlendMode(OF_BLENDMODE_ADD);
 
-    ofColor auraCol = ofColor(255, 255, 180); // デフォルト
-    if (state.currentType == TYPE_ELEGANT) auraCol = state.ui.colElegant;
-    else if (state.currentType == TYPE_STURDY) auraCol = state.ui.colSturdy;
-    else if (state.currentType == TYPE_ELDRITCH) auraCol = state.ui.colEldritch;
-
-    float progress = state.auraTimer / config["ui"]["aura"].value("duration", 1.5f);
-    float flicker = 0.8f + 0.2f * sin(ofGetElapsedTimef() * 30.0f);
+    float progress = state.auraTimer / config["ui"]["aura"].value("duration", 1.8f);
+    float flicker = 0.8f + 0.2f * sin(ofGetElapsedTimef() * 40.0f);
 
     for (auto& b : auraBeams) {
-        float yAnim = fmod(ofGetElapsedTimef() * b.speed * 150.0f, 2000.0f);
+        float yAnim = fmod(ofGetElapsedTimef() * b.speed * 150.0f, 2500.0f);
         ofPushMatrix();
-        ofTranslate(b.x, -yAnim + 800, b.z);
+        ofTranslate(b.x, -yAnim + 1000, b.z);
 
-        // 芯の部分
-        ofSetColor(255, 255, 255, 180 * progress * flicker);
-        ofDrawRectangle(-b.width * 0.1f, 0, b.width * 0.2f, b.height);
+        // 十字構造（90度回転させて2枚描画）
+        for (int i = 0; i < 2; i++) {
+            ofPushMatrix();
+            if (i == 1) ofRotateYDeg(90);
 
-        // 外光部分
-        ofSetColor(auraCol, 120 * progress * flicker);
-        ofDrawRectangle(-b.width * 0.5f, 0, b.width, b.height);
+            // 芯（白）
+            ofSetColor(255, 255, 255, 150 * progress * flicker);
+            ofDrawRectangle(-b.width * 0.1f, 0, b.width * 0.2f, b.height);
+
+            // 外光（スキル別カラー）
+            ofSetColor(state.auraColor, 100 * progress * flicker);
+            ofDrawRectangle(-b.width * 0.5f, 0, b.width, b.height);
+            ofPopMatrix();
+        }
         ofPopMatrix();
     }
     ofDisableBlendMode();
@@ -1926,7 +1973,7 @@ void ofApp::executeCommand(CommandType type) {
             p.size = 5.0f;
             p.decay = ofRandom(0.01f, 0.02f);
             p.angle = ofRandom(TWO_PI);
-            p.spiralRadius = 0.0f;
+            p.spiralRadius = ofRandom(400, 600);
             particles2D.push_back(p);
         }
         spawn2DEffect(P_KOTODAMA);
@@ -2027,33 +2074,20 @@ void ofApp::processCommand(int key) {
 // --- スキル処理 ---
 void ofApp::upgradeGrowth() { 
     if (state.skillPoints > 0 && growthLevel < 5) { 
-        growthLevel++; state.skillPoints--; 
-        auraBeams.clear();
-        int count = config["ui"]["aura"].value("beam_count", 12);
-        for (int i = 0; i < count; i++) {
-            AuraBeam b;
-            b.x = ofRandom(-200, 200);
-            b.z = ofRandom(-200, 200);
-            b.width = ofRandom(10, 30);
-            b.speed = ofRandom(2, 5);
-            b.height = ofRandom(1000, 2000);
-            auraBeams.push_back(b);
-        }
-        state.auraTimer = config["ui"]["aura"].value("duration", 1.5f);
+        growthLevel++; state.skillPoints--;
+        triggerAura(ofColor(180, 220, 255));
     } 
 }
 void ofApp::upgradeResist() { 
     if (state.skillPoints > 0 && chaosResistLevel < 5) { 
         chaosResistLevel++; state.skillPoints--; 
-        state.auraTimer = config["ui"]["aura"].value("duration", 1.5f); // オーラタイマー始動
-        spawn2DEffect(P_BLOOM);
+        triggerAura(ofColor(150, 255, 100));
     } 
 }
 void ofApp::upgradeCatalyst() { 
     if (state.skillPoints > 0 && bloomCatalystLevel < 5) { 
         bloomCatalystLevel++; state.skillPoints--; 
-        state.auraTimer = config["ui"]["aura"].value("duration", 1.5f); // オーラタイマー始動
-        spawn2DEffect(P_BLOOM);
+        triggerAura(ofColor(255, 150, 200));
     } 
 }
 

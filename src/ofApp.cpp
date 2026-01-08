@@ -621,6 +621,10 @@ void ofApp::drawViewModeOverlay() {
 
 // 演出生成の実装
 void ofApp::spawn2DEffect(ParticleType type) {
+    float sw = ofGetWidth();
+    float sh = ofGetHeight();
+    float screenScale = getUIScale();
+
     int count = (type == P_RAIN_SPLASH) ? 1 : 60;
 
     for (int i = 0; i < count; i++) {
@@ -630,35 +634,33 @@ void ofApp::spawn2DEffect(ParticleType type) {
         switch (type) {
         case P_WATER: {
             p.pos = { (float)ofRandomWidth(), -20.0f };
-            p.vel = { ofRandom(-3, 3), ofRandom(10, 20) };
+            p.vel = { ofRandom(-2, 2) * screenScale, ofRandom(8, 15) * screenScale };
             p.color = ofColor(120, 200, 255);
-            p.size = ofRandom(3, 8);
-            p.decay = ofRandom(0.01, 0.03);
+            p.size = ofRandom(12, 22) * screenScale;
+            p.decay = ofRandom(0.004, 0.008);
         }break;
 
         case P_FERTILIZER: {
-            p.pos = { (float)ofRandomWidth(), (float)ofGetHeight() + 20.0f };
+            p.pos = { (float)ofRandom(sw), (float)ofRandom(sh * 0.85f, sh) };
             p.vel = { ofRandom(-4, 4), ofRandom(-8.0f, -4.0f) };
             p.color = ofColor(180, 255, 100);
-            p.size = ofRandom(8, 15);
+            p.size = ofRandom(10, 20) * screenScale;
             p.decay = ofRandom(0.005, 0.015);
         }break;
 
         case P_KOTODAMA: {
-            p.pos = { (float)ofGetWidth() / 2, (float)ofGetHeight() / 2 };
-            float angle = ofRandom(TWO_PI);
-            float spd = ofRandom(5, 15);
-            p.vel = { cos(angle) * spd, sin(angle) * spd };
-            p.color = ofColor(200, 160, 255);
-            p.size = ofRandom(10, 30);
-            p.decay = ofRandom(0.02, 0.04);
+            p.color = ofColor(220, 180, 255);
+            p.decay = ofRandom(0.01f, 0.02f);
+            p.angle = ofRandom(TWO_PI);
+            p.spiralRadius = ofRandom(0.1f, 0.6f) * glm::length(glm::vec2(sw, sh));
+            p.life = 1.0f;
         }break;
 
         case P_RAIN_SPLASH: {
             p.pos = { ofRandomWidth(), ofRandom(ofGetHeight() * 0.8, ofGetHeight()) };
             p.vel = { 0, 0 };
             p.color = ofColor(150, 180, 255, 100);
-            p.size = ofRandom(5, 15);
+            p.size = ofRandom(8, 16);
             p.decay = 0.05;
         }break;
 
@@ -675,33 +677,54 @@ void ofApp::spawn2DEffect(ParticleType type) {
     }
 }
 
+// ヘルパー関数を追加：オーラ演出をトリガーする
+void ofApp::triggerAura(ofColor col) {
+    state.auraColor = col;
+    auraBeams.clear();
+
+    float treeH = myTree.getLen() * config["camera"].value("height_factor", 3.5f);
+    float effectScale = std::max(1.0f, treeH / 200.0f);
+
+    int count = config["ui"]["aura"].value("beam_count", 15);
+    for (int i = 0; i < count; i++) {
+        AuraBeam b;
+        b.x = ofRandom(-150, 150) * effectScale;
+        b.z = ofRandom(-150, 150) * effectScale;
+        b.width = ofRandom(10, 30) * effectScale;
+        b.speed = ofRandom(2, 6); 
+        b.height = ofRandom(treeH * 1.2f,treeH * 1.2f + 200);
+        auraBeams.push_back(b);
+    }
+    state.auraTimer = config["ui"]["aura"].value("duration", 1.8f);
+}
+
+// 描画メソッドの修正（十字板構造）
 void ofApp::drawAura() {
     if (state.auraTimer <= 0) return;
 
     ofPushStyle();
     ofEnableBlendMode(OF_BLENDMODE_ADD);
 
-    float progress = state.auraTimer / config["ui"]["aura"].value("duration", 1.5f);
-    float flicker = 0.8f + 0.2f * sin(ofGetElapsedTimef() * 30.0f);
+    float progress = state.auraTimer / config["ui"]["aura"].value("duration", 1.8f);
+    float flicker = 0.8f + 0.2f * sin(ofGetElapsedTimef() * 40.0f);
 
     for (auto& b : auraBeams) {
-        float yAnim = fmod(ofGetElapsedTimef() * b.speed * 150.0f, 2000.0f);
+        float yAnim = fmod(ofGetElapsedTimef() * b.speed * 150.0f, 2500.0f);
         ofPushMatrix();
-        ofTranslate(b.x, -yAnim + 800, b.z);
+        ofTranslate(b.x, -yAnim + 1000, b.z);
 
-        // 90度回転させて2回描画することで十字にする
+        // 十字構造（90度回転させて2枚描画）
         for (int i = 0; i < 2; i++) {
             ofPushMatrix();
-            ofRotateYDeg(i * 90);
+            if (i == 1) ofRotateYDeg(90);
 
             // 芯（白）
-            ofSetColor(255, 255, 255, 180 * progress * flicker);
+            ofSetColor(255, 255, 255, 150 * progress * flicker);
             ofDrawRectangle(-b.width * 0.1f, 0, b.width * 0.2f, b.height);
 
-            // 外光（スキル別の色）
-            ofSetColor(auraColor, 120 * progress * flicker);
+            // 外光（スキル別カラー）
+            ofSetColor(state.auraColor, 100 * progress * flicker);
             ofDrawRectangle(-b.width * 0.5f, 0, b.width, b.height);
-
             ofPopMatrix();
         }
         ofPopMatrix();
@@ -729,17 +752,6 @@ void ofApp::executeCommand(CommandType type) {
         break;
     case CMD_KOTODAMA:
         myTree.kotodama(1.0);
-        for (int i = 0; i < 40; i++) {
-            Particle2D p;
-            p.type = P_KOTODAMA;
-            p.pos = { (float)ofGetWidth() * 0.5f, (float)ofGetHeight() * 0.5f };
-            p.color = ofColor(200, 160, 255);
-            p.size = 5.0f;
-            p.decay = ofRandom(0.01f, 0.02f);
-            p.angle = ofRandom(TWO_PI);
-            p.spiralRadius = 0.0f;
-            particles2D.push_back(p);
-        }
         spawn2DEffect(P_KOTODAMA);
         break;
     }
@@ -751,7 +763,6 @@ void ofApp::executeCommand(CommandType type) {
         if (myTree.getDayCount() % config["game"].value("skill_interval", 5) == 0) {
             state.skillPoints++;
         }
-        weather.randomize();
     }
     weather.randomize();
 
@@ -839,59 +850,19 @@ void ofApp::processCommand(int key) {
 void ofApp::upgradeGrowth() { 
     if (state.skillPoints > 0 && growthLevel < 5) { 
         growthLevel++; state.skillPoints--;
-        auraColor = state.ui.colElegant;
-        state.auraTimer = config["ui"]["aura"].value("duration", 1.5f);
-        auraBeams.clear();
-        int count = config["ui"]["aura"].value("beam_count", 12);
-        for (int i = 0; i < count; i++) {
-            AuraBeam b;
-            b.x = ofRandom(-200, 200);
-            b.z = ofRandom(-200, 200);
-            b.width = ofRandom(10, 30);
-            b.speed = ofRandom(2, 5);
-            b.height = ofRandom(1000, 2000);
-            auraBeams.push_back(b);
-        }
-        state.auraTimer = config["ui"]["aura"].value("duration", 1.5f);
+        triggerAura(ofColor(180, 220, 255));
     } 
 }
 void ofApp::upgradeResist() { 
     if (state.skillPoints > 0 && chaosResistLevel < 5) { 
         chaosResistLevel++; state.skillPoints--; 
-        auraColor = state.ui.colSturdy;
-        state.auraTimer = config["ui"]["aura"].value("duration", 1.5f);
-        auraColor = state.ui.colElegant;
-        auraBeams.clear();
-        int count = config["ui"]["aura"].value("beam_count", 12);
-        for (int i = 0; i < count; i++) {
-            AuraBeam b;
-            b.x = ofRandom(-200, 200);
-            b.z = ofRandom(-200, 200);
-            b.width = ofRandom(10, 30);
-            b.speed = ofRandom(2, 5);
-            b.height = ofRandom(1000, 2000);
-            auraBeams.push_back(b);
-        }
-        state.auraTimer = config["ui"]["aura"].value("duration", 1.5f);
+        triggerAura(ofColor(150, 255, 100));
     } 
 }
 void ofApp::upgradeCatalyst() { 
     if (state.skillPoints > 0 && bloomCatalystLevel < 5) { 
         bloomCatalystLevel++; state.skillPoints--; 
-        auraColor = ofColor(255, 150, 200);
-        state.auraTimer = config["ui"]["aura"].value("duration", 1.5f);
-        auraBeams.clear();
-        int count = config["ui"]["aura"].value("beam_count", 12);
-        for (int i = 0; i < count; i++) {
-            AuraBeam b;
-            b.x = ofRandom(-200, 200);
-            b.z = ofRandom(-200, 200);
-            b.width = ofRandom(10, 30);
-            b.speed = ofRandom(2, 5);
-            b.height = ofRandom(1000, 2000);
-            auraBeams.push_back(b);
-        }
-        state.auraTimer = config["ui"]["aura"].value("duration", 1.5f);
+        triggerAura(ofColor(255, 150, 200));
     } 
 }
 

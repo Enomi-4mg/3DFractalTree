@@ -66,6 +66,7 @@ struct GameState {
     float auraTimer = 0.0f;
     float levelUpBubbleTimer = 0.0f;
     int lastCommandIndex = -1;
+    ofColor auraColor = ofColor(255, 255, 255);
 };
 
 struct Particle2D {
@@ -74,43 +75,43 @@ struct Particle2D {
     float size, life = 1.0f, decay;
     ParticleType type;
     float angle = 0.0f;
-    float spiralRadius = 0.0f;
+    float spiralRadius = 0.0f; // 螺旋の初期半径
 
     void update(float dt) {
         if (type == P_KOTODAMA) {
-            // 中心へ吸い込まれる螺旋ロジック
+            // 吸い込まれる螺旋ロジック
             angle += 8.0f * dt;
-            // 寿命(life)が減るにつれて半径を小さくし、中央へ引き寄せる
-            spiralRadius = ofLerp(0, 400.0f, life);
-            pos.x = ofGetWidth() * 0.5f + cos(angle) * spiralRadius;
-            pos.y = ofGetHeight() * 0.5f + sin(angle) * spiralRadius;
-            // 消滅直前に少し小さくする
-            size = ofMap(life, 0.1, 0, 15.0f, 0, true);
+            // 寿命(life)が 1.0 -> 0.0 になるにつれて半径を縮小
+            float currentR = spiralRadius * life;
+            pos.x = ofGetWidth() * 0.5f + cos(angle) * currentR;
+            pos.y = ofGetHeight() * 0.5f + sin(angle) * currentR;
+            // サイズ：最初は大きく、徐々に小さく (25 -> 2)
+            size = ofMap(life, 1.0f, 0.0f, 25.0f, 2.0f, true);
         }
         else if (type == P_RAIN_SPLASH) {
-            // 波紋：位置は固定で寿命だけ減らす
+            // 波紋：位置固定、寿命のみ減衰
         }
         else {
-            pos += vel;
+            pos += vel * (dt * 60.0f);
         }
-        life -= decay;
+        life -= decay * (dt * 60.0f);
     }
 
     void draw() {
         if (type == P_RAIN_SPLASH) {
-            // 波紋の表現を元に戻す（広がる楕円）
+            // 復活：雨の波紋（広がる楕円）
             ofPushStyle();
             ofNoFill();
             ofSetLineWidth(2);
-            ofSetColor(color, life * 200);
-            // 寿命が尽きるほど横に広がる
-            float rippleScale = (1.0f - life) * size;
-            ofDrawEllipse(pos, rippleScale * 2.0f, rippleScale);
+            ofSetColor(color, life * 150);
+            float rippleW = (1.0f - life) * size * 4.0f;
+            float rippleH = (1.0f - life) * size * 2.0f;
+            ofDrawEllipse(pos, rippleW, rippleH);
             ofPopStyle();
         }
         else {
-            // 通常の光る玉（背面影付き）
-            ofSetColor(0, 0, 0, life * 100);
+            // 通常の加算合成用の光る玉
+            ofSetColor(0, 0, 0, life * 100); // 視認性用影
             ofDrawCircle(pos, size * 1.2f);
             ofSetColor(color, life * 255);
             ofDrawCircle(pos, size);

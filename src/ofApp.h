@@ -60,7 +60,8 @@ class ofApp : public ofBaseApp{
 		void drawCenterMessage(float scale);
 		void drawStatusPanel();
 		void drawBottomActionBar();
-		void drawAura(); // 新設：オーラ描画用
+		void drawAura();
+		void triggerAura(ofColor col);
 
 		// ... ユーティリティ ...
 		float getUIScale();
