@@ -58,6 +58,11 @@ class ofApp : public ofBaseApp{
 	private:
 		// UIコンポーネントの分割
 		void drawHUD();
+
+		void drawRightGrowthSlots(float scale);
+		void drawLeftStatusPanel(float scale);
+		void drawCenterMessage(float scale);
+
 		void drawStatusPanel();
 		void drawControlPanel();
 		void drawViewModeOverlay();

@@ -21,6 +21,10 @@ void ofApp::setup() {
     state.ui.labelFertilizer = ui["labels"].value("fertilizer", "FERTILIZE");
     state.ui.labelKotodama = ui["labels"].value("kotodama", "KOTODAMA");
 
+    state.ui.colElegant.set(180, 220, 255); // 暫定。後ほどJSONから取得
+    state.ui.colSturdy.set(150, 255, 100);
+    state.ui.colEldritch.set(255, 50, 100);
+
     auto btn = ui["button"];
     state.ui.btnW = btn.value("width", 160.0f);
     state.ui.btnH = btn.value("height", 50.0f);
@@ -104,6 +108,30 @@ void ofApp::update() {
     if (weather.state == RAINY && ofGetFrameNum() % 3 == 0) {
         spawn2DEffect(P_RAIN_SPLASH);
     }
+
+    // --- バーのアニメーション管理 ---
+    if (state.barState == BAR_LEVEL_UP_FLASH) {
+        state.barFlashTimer += ofGetLastFrameTime();
+        if (state.barFlashTimer > 0.4f) { // 0.4秒発光を維持
+            state.barState = BAR_RESET_WAIT;
+            state.barFlashTimer = 0;
+            state.levelUpBubbleTimer = 1.5f; // 「LEVEL UP!」表示開始
+        }
+    }
+    else if (state.barState == BAR_RESET_WAIT) {
+        visualDepthProgress = ofLerp(visualDepthProgress, 0, 0.2f);
+        if (visualDepthProgress < 0.01f) {
+            visualDepthProgress = 0;
+            state.barState = BAR_IDLE;
+        }
+    }
+    else {
+        visualDepthProgress = ofLerp(visualDepthProgress, myTree.getDepthProgress(), 0.1f);
+    }
+
+    // --- オーラと演出タイマーの更新 ---
+    if (state.auraTimer > 0) state.auraTimer -= ofGetLastFrameTime();
+    if (state.levelUpBubbleTimer > 0) state.levelUpBubbleTimer -= ofGetLastFrameTime();
 }
 
 //--------------------------------------------------------------
@@ -221,8 +249,134 @@ void ofApp::drawHUD() {
 
     ofPopMatrix(); // 一旦戻す（個別に座標計算するため）
 
+    drawLeftStatusPanel(scale);  // 天候、進化印、デバッグ
+    drawRightGrowthSlots(scale); // スキルボタン
+    drawCenterMessage(scale);    // メッセージ、吹き出し
+
     drawStatusPanel();     // 右上へ
     drawBottomActionBar(); // 下部中央へ
+}
+
+void ofApp::drawLeftStatusPanel(float scale) {
+    ofPushMatrix();
+    ofScale(scale, scale);
+    ofTranslate(20, 20);
+
+    // 1. 天候バフ情報
+    ofSetColor(255);
+    mainFont.drawString("WEATHER: " + weather.getName(), 0, 20);
+    ofSetColor(255, 255, 0);
+    string buff = (weather.state == SUNNY) ? "Buff: Water+" : (weather.state == RAINY) ? "Buff: Fertilizer+" : "Buff: Kotodama+";
+    mainFont.drawString(buff, 0, 40);
+
+    // 2. 進化達成の印 (フェーズ2の目玉)
+    float symbolY = 80;
+    auto drawSym = [&](bool active, string sym, ofColor col, string label) {
+        ofSetColor(active ? col : ofColor(60));
+        mainFont.drawString(sym + " " + label, 0, symbolY);
+        symbolY += 30;
+        };
+
+    drawSym(state.evo.hasEvolvedType && state.currentType == TYPE_ELEGANT, "◇", state.ui.colElegant, "ELEGANT");
+    drawSym(state.evo.hasEvolvedType && state.currentType == TYPE_STURDY, "□", state.ui.colSturdy, "STURDY");
+    drawSym(state.evo.hasEvolvedType && state.currentType == TYPE_ELDRITCH, "◎", state.ui.colEldritch, "ELDRITCH");
+
+    // 3. デバッグ情報のオーバーレイ (重なり許容)
+    if (state.bShowDebug) {
+        drawDebugOverlay(); // ここで詳細なスタッツを左側に描画
+    }
+    ofPopMatrix();
+}
+
+void ofApp::drawRightGrowthSlots(float scale) {
+    float panelW = 200;
+    ofPushMatrix();
+    ofTranslate(ofGetWidth() - (panelW * scale) - 20, ofGetHeight() / 2 - 100 * scale);
+    ofScale(scale, scale);
+
+    string names[] = { "GROWTH", "RESIST", "CATALYST" };
+    int levels[] = { growthLevel, chaosResistLevel, bloomCatalystLevel };
+    int cost = 1; // JSONから取得
+
+    for (int i = 0; i < 3; i++) {
+        bool canAfford = (state.skillPoints >= cost);
+        ofSetColor(canAfford ? ofColor(100, 150, 255, 200) : ofColor(40, 150));
+        ofDrawRectRounded(0, i * 70, panelW, 60, 5);
+
+        ofSetColor(255);
+        mainFont.drawString(names[i], 10, i * 70 + 25);
+        mainFont.drawString("LV." + ofToString(levels[i]), 10, i * 70 + 48);
+        mainFont.drawString("COST: " + ofToString(cost), panelW - 80, i * 70 + 48);
+    }
+
+    // スキルポイント残高
+    ofSetColor(255, 200, 0);
+    mainFont.drawString("SKILL POINTS: " + ofToString(state.skillPoints), 0, -20);
+    ofPopMatrix();
+}
+
+// 画面中央のメッセージ（レベルアップ吹き出し・進化通知）を描画
+void ofApp::drawCenterMessage(float scale) {
+    ofPushStyle();
+    ofPushMatrix();
+    // 基準解像度に合わせてスケーリング
+    ofScale(scale, scale);
+
+    // 1. レベルアップの吹き出し ("LEVEL UP!")
+    if (state.levelUpBubbleTimer > 0) {
+        // 残り時間に応じてフェードアウト
+        float alpha = ofMap(state.levelUpBubbleTimer, 0, 1.5, 0, 255, true);
+        string msg = "LEVEL UP!";
+
+        float tw = mainFont.stringWidth(msg);
+        // 画面中央、木の少し上に配置
+        float tx = (ofGetWidth() / scale) * 0.5f - tw * 0.5f;
+        float ty = (ofGetHeight() / scale) * 0.5f - 180; // 木の高さに合わせて調整
+
+        // 吹き出しの背景（半透明の白）
+        ofSetColor(255, 255, 255, alpha * 0.9);
+        ofDrawRectRounded(tx - 15, ty - 28, tw + 30, 40, 8);
+
+        // 下向きの三角形（吹き出しのツノ部分）
+        ofDrawTriangle(tx + tw * 0.5f - 10, ty + 12,
+            tx + tw * 0.5f + 10, ty + 12,
+            tx + tw * 0.5f, ty + 25);
+
+        // テキスト（黒）
+        ofSetColor(0, 0, 0, alpha);
+        mainFont.drawString(msg, tx, ty);
+    }
+
+    // 2. 進化完了メッセージ ("EVOLUTION COMPLETE")
+    // Day 20 または Day 40 の当日のみ、画面中央に大きく表示
+    int currentDay = myTree.getDayCount();
+    if (currentDay == 20 || currentDay == 40) {
+        // クールタイム中（アクション実行直後）に強調表示
+        float alpha = ofMap(state.actionCooldown, 0, state.ui.cooldownDuration, 100, 255, true);
+
+        string evoMsg = "EVOLUTION COMPLETE";
+        float tw = mainFont.stringWidth(evoMsg);
+        float tx = (ofGetWidth() / scale) * 0.5f - tw * 0.5f;
+        float ty = (ofGetHeight() / scale) * 0.5f;
+
+        // 文字の背後に帯状の背景
+        ofSetColor(0, 0, 0, alpha * 0.6);
+        ofDrawRectangle(0, ty - 40, ofGetWidth() / scale, 60);
+
+        // 進化タイプに応じた色で強調
+        ofColor evoCol = ofColor(255, 255, 0); // デフォルト
+        if (currentDay == 20) {
+            if (state.currentType == TYPE_ELEGANT) evoCol = state.ui.colElegant;
+            else if (state.currentType == TYPE_STURDY) evoCol = state.ui.colSturdy;
+            else if (state.currentType == TYPE_ELDRITCH) evoCol = state.ui.colEldritch;
+        }
+
+        ofSetColor(evoCol, alpha);
+        mainFont.drawString(evoMsg, tx, ty);
+    }
+
+    ofPopMatrix();
+    ofPopStyle();
 }
 
 // ステータスパネル（プログレスバー）の描画
