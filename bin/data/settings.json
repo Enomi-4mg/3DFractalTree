@@ -79,16 +79,16 @@
     },
     "audio": {
         "bgm": {
-            "sunny": "sounds/bgm_sunny.mp3",
-            "rainy": "sounds/bgm_rainy.mp3",
-            "moonlight": "sounds/bgm_moonlight.mp3",
+            "sunny": "audio/bgm_sunny.mp3",
+            "rainy": "audio/bgm_rainy.mp3",
+            "moonlight": "audio/bgm_moonlight.mp3",
             "fade_duration": 1.5
         },
         "se": {
-            "water": "sounds/water.wav",
-            "fertilize": "sounds/fertilizer.wav",
-            "kotodama": "sounds/kotodama.wav",
-            "level_up": "sounds/levelup.wav"
+            "water": "audio/water.mp3",
+            "fertilize": "audio/fertilizer.mp3",
+            "kotodama": "audio/kotodama.mp3",
+            "level_up": "audio/levelup.mp3"
         },
         "synth": {
             "base_freq": 440.0,

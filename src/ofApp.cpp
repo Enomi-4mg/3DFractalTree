@@ -78,6 +78,81 @@ void ofApp::setup() {
     cam.setFarClip(20000);
     cam.setTarget(ofVec3f(0, 0, 0));
     cam.disableMouseInput();
+
+    // 音響設定のロード
+    auto audioCfg = config["audio"];
+    state.audio.fadeSpeed = 1.0f / audioCfg["bgm"].value("fade_duration", 1.5f);
+
+    // BGMの準備
+    string keys[] = { "sunny", "rainy", "moonlight" };
+    for (auto& k : keys) {
+        string path = audioCfg["bgm"].value(k, "");
+        if (bgmMap[k].load(path)) {
+            bgmMap[k].setLoop(true);
+            bgmMap[k].setVolume(0);
+            bgmMap[k].play(); // 無音で流し続ける
+            state.audio.bgmTracks[k] = { 0.0f, 0.0f };
+        }
+    }
+    for (auto& pair : bgmMap) pair.second.setLoop(true);
+
+    // SEの準備
+    auto seCfg = audioCfg["se"];
+    for (auto it = seCfg.begin(); it != seCfg.end(); ++it) {
+        string key = it.key();
+        string path = it.value();
+        bool loaded = seMap[key].load(path);
+        seMap[key].setLoop(false);
+        seMap[key].setMultiPlay(true); // SEは重なって再生OK
+        if (!loaded) ofLogError("Audio") << "Failed to load SE: " << path;
+    }
+
+    // SoundStream開始 (2ch出力, 0ch入力, 44100Hz)
+    ofSoundStreamSettings settings;
+    settings.setOutListener(this);
+    settings.sampleRate = 44100;
+    settings.numOutputChannels = 2;
+    settings.numInputChannels = 0;
+    soundStream.setup(settings);
+
+    loadPreset(0);
+    updateWeatherBGM();
+}
+
+void ofApp::updateWeatherBGM() {
+    // 現在の天候状態を文字列キーに変換
+    string weatherKey = "";
+    if (weather.state == SUNNY) weatherKey = "sunny";
+    else if (weather.state == RAINY) weatherKey = "rainy";
+    else if (weather.state == MOONLIGHT) weatherKey = "moonlight";
+
+    // 全BGMトラックの目標音量を更新
+    // 現在の天候に対応するトラックのみ 1.0f、それ以外を 0.0f に設定
+    for (auto& pair : state.audio.bgmTracks) {
+        pair.second.targetVol = (pair.first == weatherKey) ? 1.0f : 0.0f;
+    }
+}
+
+void ofApp::loadPreset(int index) {
+    if (index < 0 || index >= config["presets"].size()) return;
+
+    state.currentPresetIndex = index;
+    auto p = config["presets"][index];
+
+    // 木を完全にリセットし、プリセットのパラメータを適用
+    myTree.reset();
+    // JSONの部分木を渡してTreeの設定を上書きする実装をTree.cppに追加想定
+    // myTree.loadSettings(p["tree"]); 
+
+    state.flashAlpha = 1.0f; // 切替時のフラッシュ演出
+
+    // プリセット固有のBGMがあれば切り替え
+    string nextBgm = p.value("bgm_type", "sunny");
+
+    // 目標音量の設定
+    for (auto& pair : state.audio.bgmTracks) {
+        pair.second.targetVol = (pair.first == nextBgm) ? 1.0f : 0.0f;
+    }
 }
 
 //--------------------------------------------------------------
@@ -104,6 +179,21 @@ void ofApp::update() {
     weather.update();
 
     updateCamera();
+
+    // シンセ音のエンベロープ（減衰）処理
+    state.audio.amplitude *= 0.92f;
+    state.audio.currentFreq = ofLerp(state.audio.currentFreq, state.audio.targetFreq, 0.1f);
+    // BGMクロスフェード処理
+    for (auto& pair : state.audio.bgmTracks) {
+        string key = pair.first;
+        AudioTrack& track = pair.second;
+
+        // 線形補間(Lerp)で音量を滑らかに変化させる
+        track.currentVol = ofLerp(track.currentVol, track.targetVol, state.audio.fadeSpeed * dt * 5.0f);
+        bgmMap[key].setVolume(track.currentVol * state.audio.volume);
+    }
+
+    updateAudioEngine(dt); // シンセ音の更新
 
     visualDepthProgress = ofLerp(visualDepthProgress, myTree.getDepthProgress(), 0.1f);
 
@@ -179,19 +269,50 @@ void ofApp::updateCamera() {
         // glm::mix (GLMのlerp) を使用してエラー回避 (修正点)
         cam.setPosition(glm::mix(cam.getPosition(), targetPos, lerpSpeed));
         cam.setTarget(glm::mix(cam.getTarget().getGlobalPosition(), targetLookAt, lerpSpeed));
-        //camAutoRotation += 0.2f;
-        //targetDist = max(600.0f, treeH * 1.5f);
-        //lookAtY = treeH * 0.4f;
-
-        //float rad = ofDegToRad(camAutoRotation);
-        //glm::vec3 targetPos(sin(rad) * targetDist, lookAtY + 100, cos(rad) * targetDist);
-
-        //cam.setTarget(glm::vec3(0, lookAtY, 0));
-        //cam.setPosition(targetPos);
-        //cam.lookAt(glm::vec3(0, lookAtY, 0));
     }
 }
 
+// --------------------------------------------------------------
+void ofApp::updateAudioEngine(float dt) {
+    // シンセ音の振幅を減衰させる（エンベロープ処理）
+    // これにより「ポーン」という打楽器的な減衰音が生まれる
+    state.audio.amplitude *= 0.94f;
+    if (state.audio.amplitude < 0.001f) state.audio.amplitude = 0;
+
+    // 周波数をターゲットへ滑らかに近づける（ポルタメント効果）
+    state.audio.currentFreq = ofLerp(state.audio.currentFreq, state.audio.targetFreq, 0.15f);
+
+    // カオス度（Mutation）が高い場合はノイズ成分を増やす
+    state.audio.noiseMix = ofLerp(state.audio.noiseMix, myTree.getCurMutation() * 0.5f, 0.1f);
+}
+
+// --------------------------------------------------------------
+void ofApp::triggerSynthSE(float freq) {
+    state.audio.targetFreq = freq;
+    state.audio.amplitude = state.audio.volume; // 音量を最大にして発音開始
+}
+
+// --------------------------------------------------------------
+void ofApp::audioOut(ofSoundBuffer& buffer) {
+    float sampleRate = 44100.0;
+    for (size_t i = 0; i < buffer.getNumFrames(); i++) {
+        state.audio.phaseStep = (TWO_PI * state.audio.currentFreq) / sampleRate;
+        state.audio.phase += state.audio.phaseStep;
+
+        // 純粋なサイン波
+        float sineSample = sin(state.audio.phase);
+
+        // 混沌度に応じたノイズ成分（ホワイトノイズ）
+        float noiseSample = ofRandom(-1.0, 1.0);
+
+        // ミックス
+        float finalSample = (sineSample * (1.0f - state.audio.noiseMix)) + (noiseSample * state.audio.noiseMix);
+        finalSample *= state.audio.amplitude;
+
+        buffer.getSample(i, 0) = finalSample;
+        buffer.getSample(i, 1) = finalSample;
+    }
+}
 
 //--------------------------------------------------------------
 void ofApp::draw() {
@@ -219,7 +340,9 @@ void ofApp::draw() {
     weather.draw2D();
 
     if (state.bViewMode) drawViewModeOverlay();
-    else drawHUD();
+    else if (!state.bCinematicMode) {
+        drawHUD();
+    }
 
     if (state.bShowDebug) drawDebugOverlay();
 }
@@ -745,19 +868,26 @@ void ofApp::executeCommand(CommandType type) {
     state.lastCommandIndex = static_cast<int>(type);
 
     auto& g = config["game"];
+    float pitchBase = 440.0f + (myTree.getLen() * 0.5f);
 
     switch (type) {
     case CMD_WATER:
         myTree.water(1.0, state.resilienceLevel, g.value("water_increment", 15.0f));
         spawn2DEffect(P_WATER);
+        seMap["water"].play();
+        triggerSynthSE(pitchBase);
         break;
     case CMD_FERTILIZER:
         myTree.fertilize(1.0, state.resilienceLevel, g.value("fertilize_increment", 8.0f));
         spawn2DEffect(P_FERTILIZER);
+        seMap["fertilize"].play();
+        triggerSynthSE(pitchBase * 0.75f);
         break;
     case CMD_KOTODAMA:
         myTree.kotodama(1.0);
         spawn2DEffect(P_KOTODAMA);
+        seMap["kotodama"].play();
+        triggerSynthSE(pitchBase * 1.5f);
         break;
     }
 
@@ -769,7 +899,9 @@ void ofApp::executeCommand(CommandType type) {
             state.skillPoints++;
         }
     }
+
     weather.randomize();
+    updateWeatherBGM();  // BGMの目標音量を更新 (追加)
 
     // クールタイムの開始
     state.actionCooldown = state.ui.cooldownDuration;
@@ -794,7 +926,13 @@ void ofApp::keyPressed(int key) {
         state.bGameEnded = false;
     }
     if (state.bShowDebug) {
-        if (key == 'w' || key == 'W') weather.randomize();
+        // プリセット切替 (5-0キー)
+        if (key >= '5' && key <= '9') loadPreset(key - '5');
+        if (key == '0') loadPreset(5);
+
+        // シネマティックモード切替
+        if (key == 'h' || key == 'H') state.bCinematicMode = !state.bCinematicMode;
+        if (key == 'w' || key == 'W') updateWeatherBGM(); weather.randomize();
         // [T]キーで日数を一気に進める
         if (key == 't' || key == 'T') {
             for (int i = 0; i < 5; i++) {

@@ -44,6 +44,13 @@ The content is organized as follows:
 3DFractalTree.vcxproj.filters
 addons.make
 bin/data/.gitkeep
+bin/data/audio/bgm_moonlight.mp3
+bin/data/audio/bgm_rainy.mp3
+bin/data/audio/bgm_sunny.mp3
+bin/data/audio/fertilizer.mp3
+bin/data/audio/kotodama.mp3
+bin/data/audio/levelup.mp3
+bin/data/audio/water.mp3
 bin/data/settings.json
 bin/data/settings.xml
 config.make
@@ -156,86 +163,6 @@ public:
         ofDrawSphere(pos, 2.0f * life);
     }
 };
-</file>
-
-<file path="README.md">
-# **3Dフラクタル成長シミュレーター 仕様書 Ver.10.0**
-
-## **1\. プロジェクト概要**
-
-C++およびopenFrameworks v0.12.1を用いた、フラクタル構造の動的生成および成長シミュレーター。VBOによる描画最適化、外部JSONによる定数管理、および専用のGUIシステムを備える。
-
-## **2\. 操作方法**
-
-### **メイン操作 (GUI / マウス)**
-
-* **下部アクションバー**: 育成コマンド（WATER, FERTILIZE, KOTODAMA）の実行。  
-* **右側成長スロット**: スキルアップグレード（GROWTH, RESIST, CATALYST）の実行。
-* **ビューモード（Vキー）**: マウスドラッグ・ホイール操作でカメラ移動
-
-### **キーボードショートカット**
-
-| Key | 機能 |
-| :---- | :---- |
-| 1, 2, 3 | 育成コマンド (Water, Fertilizer, Kotodama) |
-| V | View Mode (カメラ自由操作) の切り替え |
-| D | デバッグ情報の表示/非表示切り替え |
-| R | システムの全初期化 (Reset) |
-| **(Debug Mode)** | **DキーがONの時のみ有効** |
-| T | 日数を5日分進め、進化判定を強制実行 |
-| E | 成長タイプをサイクル切り替え (DEFAULT \-\> ELEGANT \-\> STURDY \-\> ELDRITCH) |
-| F | 花の形状をサイクル切り替え (NONE \-\> CRYSTAL \-\> PETAL \-\> SPIRIT) |
-| P | スキルポイント無限化 (99ポイント固定) のトグル |
-| Space | 時間（日数）の進行停止トグル |
-| \+ / \= | 経験値を50ポイント加算 (レベルアップ演出のテスト用) |
-
-## **3\. 技術仕様・システム構成**
-
-### **3.1 描画エンジン (Tree クラス)**
-
-* **VBOインデックス描画**: 枝、葉、花を単一の ofVboMesh に集約。  
-* **枝の形状**: 1本の枝を縦方向に4分割（5断面）し、ねじれ（Twist）とテーパリングを実装。
-* **LOD制御**: 再帰深度に基づき、断面の頂点数を 3〜5 に動的調整。
-
-### **3.2 UI・演出システム (ofApp クラス)**
-
-* **色加算合成 (OF\_BLENDMODE\_ADD)**: オーラおよびパーティクル描画などのエフェクト効果に適用。
-* **レスポンシブ配置**: getUIScale() により、解像度 1024x768 を基準とした自動スケーリングを適用。
-
-### **3.3 データ管理構造**
-
-* **Constants.h**: 全データ構造 (GameState, UISettings, AuraBeam 等) および列挙型を単一ファイルに集約。  
-* **settings.json**: 木の物理パラメータ、カメラ設定、天候背景色、UI座標、ボタン色、オーラ演出定数を外部保持。
-## **3\. 技術仕様・主要機能**
-
-### **3.4 成長システム**
-
-* **進化分岐**: Day 20 (樹形分岐), Day 40 (開花分岐)。  
-* **スキルバフ**: Resilience による副作用軽減、Catalyst による開花しきい値の緩和。  
-* **デバッグHUD**: 画面左側のゲームUIの上に、FPS、頂点数、経験値詳細等のスタッツを透過重ね表示。
-
-* **コマンドと増分・トレードオフ**:
-  * **Water**: `depthExp`+, `長さ`++, `太さ`-, `変異度`--
-  * **Fertilizer**: `depthExp`+, `長さ`-, `太さ`++, `変異度`-
-  * **Kotodama**: `depthExp`++, `長さ`+, `太さ`-, `変異度`++
-
-* **描画・最適化**
-  * **縦方向分割 (Subdivision)**: 1つの枝を縦方向に4分割（5つの断面）して生成。ねじれ (Twist) / テーパリングを表現。
-  * **法線計算**: 頂点ごとに法線（Normal）を設定。`ofLight`による平行光源（SUNNY）および点光源（MOONLIGHT）の陰影計算に対応。
-  * **カメラ制御**:
-    * 木の推定全高に基づき、注視点（Target）と距離（Distance）を自動計算し補間移動。
-    * `settings.json`より回転速度、追従感度の調整が可能。
-
-### **3.3 UI・視覚演出**
-* **パラメータバー**: 現在値と最大値（Memory）を一つのバーに重ねて表示。
-* **レスポンシブUI**: 基準解像度（1024x768）に対するウィンドウサイズ比率に基づきHUDを自動スケール。
-* **3D/2Dパーティクル**:3D/2Dパーティクル: 育成、天候、および進化発生時にそれぞれ独立した物理挙動を持つパーティクルを生成。
-
-## **4\. 外部設定ファイル (settings.json) 仕様**
-* **tree**: 最大深度、経験値ベース値/指数、描画スケール、分岐角、各種色彩（RGB/HSB）。
-* **camera**: 回転速度、補間速度、最小距離、高さ係数。
-* **weather**: 各天候の背景色。
-* **game**: 最大日数、スキルポイント付与間隔、コマンドごとの基礎増分値。
 </file>
 
 <file path="Weather.h">
@@ -432,6 +359,86 @@ public:
 </Project>
 </file>
 
+<file path="README.md">
+# **3Dフラクタル成長シミュレーター 仕様書 Ver.10.0**
+
+## **1\. プロジェクト概要**
+
+C++およびopenFrameworks v0.12.1を用いた、フラクタル構造の動的生成および成長シミュレーター。VBOによる描画最適化、外部JSONによる定数管理、および専用のGUIシステムを備える。
+
+## **2\. 操作方法**
+
+### **メイン操作 (GUI / マウス)**
+
+* **下部アクションバー**: 育成コマンド（WATER, FERTILIZE, KOTODAMA）の実行。  
+* **右側成長スロット**: スキルアップグレード（GROWTH, RESIST, CATALYST）の実行。
+* **ビューモード（Vキー）**: マウスドラッグ・ホイール操作でカメラ移動
+
+### **キーボードショートカット**
+
+| Key | 機能 |
+| :---- | :---- |
+| 1, 2, 3 | 育成コマンド (Water, Fertilizer, Kotodama) |
+| V | View Mode (カメラ自由操作) の切り替え |
+| D | デバッグ情報の表示/非表示切り替え |
+| R | システムの全初期化 (Reset) |
+| **(Debug Mode)** | **DキーがONの時のみ有効** |
+| T | 日数を5日分進め、進化判定を強制実行 |
+| E | 成長タイプをサイクル切り替え (DEFAULT \-\> ELEGANT \-\> STURDY \-\> ELDRITCH) |
+| F | 花の形状をサイクル切り替え (NONE \-\> CRYSTAL \-\> PETAL \-\> SPIRIT) |
+| P | スキルポイント無限化 (99ポイント固定) のトグル |
+| Space | 時間（日数）の進行停止トグル |
+| \+ / \= | 経験値を50ポイント加算 (レベルアップ演出のテスト用) |
+
+## **3\. 技術仕様・システム構成**
+
+### **3.1 描画エンジン (Tree クラス)**
+
+* **VBOインデックス描画**: 枝、葉、花を単一の ofVboMesh に集約。  
+* **枝の形状**: 1本の枝を縦方向に4分割（5断面）し、ねじれ（Twist）とテーパリングを実装。
+* **LOD制御**: 再帰深度に基づき、断面の頂点数を 3〜5 に動的調整。
+
+### **3.2 UI・演出システム (ofApp クラス)**
+
+* **色加算合成 (OF\_BLENDMODE\_ADD)**: オーラおよびパーティクル描画などのエフェクト効果に適用。
+* **レスポンシブ配置**: getUIScale() により、解像度 1024x768 を基準とした自動スケーリングを適用。
+
+### **3.3 データ管理構造**
+
+* **Constants.h**: 全データ構造 (GameState, UISettings, AuraBeam 等) および列挙型を単一ファイルに集約。  
+* **settings.json**: 木の物理パラメータ、カメラ設定、天候背景色、UI座標、ボタン色、オーラ演出定数を外部保持。
+## **3\. 技術仕様・主要機能**
+
+### **3.4 成長システム**
+
+* **進化分岐**: Day 20 (樹形分岐), Day 40 (開花分岐)。  
+* **スキルバフ**: Resilience による副作用軽減、Catalyst による開花しきい値の緩和。  
+* **デバッグHUD**: 画面左側のゲームUIの上に、FPS、頂点数、経験値詳細等のスタッツを透過重ね表示。
+
+* **コマンドと増分・トレードオフ**:
+  * **Water**: `depthExp`+, `長さ`++, `太さ`-, `変異度`--
+  * **Fertilizer**: `depthExp`+, `長さ`-, `太さ`++, `変異度`-
+  * **Kotodama**: `depthExp`++, `長さ`+, `太さ`-, `変異度`++
+
+* **描画・最適化**
+  * **縦方向分割 (Subdivision)**: 1つの枝を縦方向に4分割（5つの断面）して生成。ねじれ (Twist) / テーパリングを表現。
+  * **法線計算**: 頂点ごとに法線（Normal）を設定。`ofLight`による平行光源（SUNNY）および点光源（MOONLIGHT）の陰影計算に対応。
+  * **カメラ制御**:
+    * 木の推定全高に基づき、注視点（Target）と距離（Distance）を自動計算し補間移動。
+    * `settings.json`より回転速度、追従感度の調整が可能。
+
+### **3.3 UI・視覚演出**
+* **パラメータバー**: 現在値と最大値（Memory）を一つのバーに重ねて表示。
+* **レスポンシブUI**: 基準解像度（1024x768）に対するウィンドウサイズ比率に基づきHUDを自動スケール。
+* **3D/2Dパーティクル**:3D/2Dパーティクル: 育成、天候、および進化発生時にそれぞれ独立した物理挙動を持つパーティクルを生成。
+
+## **4\. 外部設定ファイル (settings.json) 仕様**
+* **tree**: 最大深度、経験値ベース値/指数、描画スケール、分岐角、各種色彩（RGB/HSB）。
+* **camera**: 回転速度、補間速度、最小距離、高さ係数。
+* **weather**: 各天候の背景色。
+* **game**: 最大日数、スキルポイント付与間隔、コマンドごとの基礎増分値。
+</file>
+
 <file path="bin/data/settings.json">
 {
     "tree": {
@@ -510,14 +517,61 @@ public:
             "duration": 1.5,
             "beam_count": 12,
             "flicker_speed": 15.0
-        },
-        // "skill_costs": {
-        //     "growth": 1,
-        //     "resist": 1,
-        //     "catalyst": 1
-        // }
+        }
     },
+    "audio": {
+        "bgm": {
+            "sunny": "audio/bgm_sunny.mp3",
+            "rainy": "audio/bgm_rainy.mp3",
+            "moonlight": "audio/bgm_moonlight.mp3",
+            "fade_duration": 1.5
+        },
+        "se": {
+            "water": "audio/water.mp3",
+            "fertilize": "audio/fertilizer.mp3",
+            "kotodama": "audio/kotodama.mp3",
+            "level_up": "audio/levelup.mp3"
+        },
+        "synth": {
+            "base_freq": 440.0,
+            "volume": 0.15
+        }
+    },
+    "presets": [
+        {
+            "name": "Standard",
+            "tree": { "max_depth": 6, "base_angle": 25.0, "trunk_hue_start": 20 },
+            "aura_color": [180, 220, 255]
+        },
+        {
+            "name": "Sacred",
+            "tree": { "max_depth": 7, "base_angle": 15.0, "branch_length_ratio": 0.85 },
+            "aura_color": [255, 255, 200]
+        },
+        {
+            "name": "Ancient",
+            "tree": { "max_depth": 5, "base_angle": 35.0, "branch_thick_ratio": 0.8 },
+            "aura_color": [150, 255, 100]
+        },
+        {
+            "name": "Chaos",
+            "tree": { "max_depth": 6, "base_angle": 45.0, "twist_factor": 120.0 },
+            "aura_color": [255, 50, 100]
+        },
+        {
+            "name": "Cherry",
+            "tree": { "max_depth": 7, "base_angle": 25.0, "leaf_color": [255, 180, 200] },
+            "aura_color": [255, 200, 230]
+        },
+        {
+            "name": "Crystalline",
+            "tree": { "max_depth": 6, "base_angle": 20.0, "trunk_hue_start": 180 },
+            "aura_color": [100, 200, 255]
+        }
+    ],
     "effects": {
+        "aura_layers": 4,
+        "sigil_rotation_speed": 45.0,
         "kotodama": {
             "particle_count": 15,
             "spiral_speed": 8.0,
@@ -569,6 +623,30 @@ struct UISettings {
     ofColor colShadow = ofColor(0, 0, 0, 150);
 };
 
+struct AudioTrack {
+    float currentVol = 0.0f;
+    float targetVol = 0.0f;
+};
+
+struct AudioState {
+    float volume = 0.2f;      // マスター音量
+    float phase = 0.0f;
+    float phaseStep = 0.0f;
+    float targetFreq = 440.0f;
+    float currentFreq = 440.0f;
+    float amplitude = 0.0f;   // 現在の音量（トリガーで上昇し、自動減衰する）
+    float noiseMix = 0.0f;    // 混沌度に応じたノイズ混入率
+    map<string, AudioTrack> bgmTracks; // 各BGMの状態を保持
+    float fadeSpeed = 1.0f;            // フェードの速さ
+};
+
+struct SigilRing {
+    float radius;
+    float rotation;
+    float speed;
+    int resolution; // 3 = 三角形, 6 = 六角形など
+};
+
 struct TreeSettings {
     int maxDepth;
     float expBase, expPower;
@@ -594,6 +672,11 @@ struct GameState {
     FlowerType currentFlowerType = FLOWER_NONE;
     int resilienceLevel = 0;
     float actionCooldown = 0.0f;
+
+    bool bCinematicMode = false;
+    float flashAlpha = 0.0f;
+    int currentPresetIndex = 0;
+
     UISettings ui;
 
     EvolutionFlags evo;
@@ -603,6 +686,12 @@ struct GameState {
     float levelUpBubbleTimer = 0.0f;
     int lastCommandIndex = -1;
     ofColor auraColor = ofColor(255, 255, 255);
+
+    AudioState audio;
+    vector<SigilRing> sigils;
+
+    int auraLayers = 2;
+    float sigilRotationSpeed = 45.0f;
 };
 
 struct Particle2D {
@@ -653,6 +742,81 @@ struct Particle2D {
             ofDrawCircle(pos, size);
         }
     }
+};
+</file>
+
+<file path="Tree.h">
+#pragma once
+#include "ofMain.h"
+#include "Constants.h"
+
+class Tree {
+public:
+    void setup(const ofJson& config); 
+    void update(int growthLevel, int chaosResist, int bloomLevel, GrowthType gType, FlowerType fType);
+    void draw();
+    void reset();
+
+    void water(float buff, int resilienceLevel, float increment);      // 長さを伸ばし、カオス度を下げる
+    void fertilize(float buff, int resilienceLevel, float increment);  // 太さを増し、カオス度を下げる
+    void kotodama(float buff);   // カオス度を上げる
+    void applyEvolution(GrowthType type);
+    void incrementDay() { if (dayCount < 50) dayCount++; }
+    void addDebugExp(float amt) { depthExp += amt; }
+    void setNeedsUpdate() { bNeedsUpdate = true; }
+
+    // --- アクセサ・ユーティリティ ---
+    float getLen() { return bLen; }
+    float getThick() { return bThick; }
+    float getMaxMutation() { return maxMutationReached; }
+    float getCurMutation() { return bMutation; }
+    float getDepthExp() { return depthExp; }
+    int getDepthLevel() { return depthLevel; }
+    int getCurrentDepth();
+    float getTotalLenEarned() { return totalLenEarned; }
+    float getTotalThickEarned() { return totalThickEarned; }
+    float getTotalMutationEarned() { return totalMutationEarned; }
+    int getDayCount() { return dayCount; }
+    int getSeed() { return seed; }
+    float getDepthProgress();
+    ofVboMesh& getVboMesh() { return vboMesh; }
+
+private:
+    // 内部ロジック：座標変換とメッシュ構築
+    glm::mat4 getNextBranchMatrix(glm::mat4 tipMat, int index, int total, float angleBase);
+    void buildBranchMesh(float length, float thickness, int depth, glm::mat4 mat, int chaosResist, int bloomLevel, GrowthType gType, FlowerType fType);
+    void addStemToMesh(float r1, float r2, float h, glm::mat4 mat, int chaosResist,int depth, GrowthType gType);
+    void addFlowerToMesh(float thickness, glm::mat4 mat, FlowerType type);
+    void addLeafToMesh(float thickness, glm::mat4 mat);
+    void addJointToMesh(float radius, glm::mat4 mat, ofColor col, int depth);
+    float getExpForDepth(int d);
+
+    // --- 育成パラメータ (b:現在値, t:目標値) ---
+    float bLen = 0, bThick = 0, bMutation = 0;
+    float tLen = 10, tThick = 2, tMutation = 0;
+    float depthExp = 0;
+    int depthLevel = 0;
+    float totalLenEarned = 0;
+    float totalThickEarned = 0;
+    float totalMutationEarned = 0;
+
+    // --- 状態管理 ---
+    ofVboMesh vboMesh; 
+    int seed;
+    int dayCount = 1;
+    float maxMutationReached = 0;
+    float lastMutation = 0;
+    bool bNeedsUpdate = true;
+
+    // --- JSON定数 ---
+    TreeSettings s;
+    /*int maxDepthConfig, currentDepth = 0;
+    float depthExpBase, depthExpPower;
+    float lengthVisualScale, thickVisualScale;
+    float branchLenRatio, branchThickRatio;
+    float baseAngle, mutationAngleMax;
+    float trunkHueStart, trunkHueEnd;
+    ofColor leafColor, flowerColor;*/
 };
 </file>
 
@@ -845,7 +1009,7 @@ void Tree::addStemToMesh(float r1, float r2, float h, glm::mat4 mat, int chaosRe
             glm::vec4 p(unitPos.x * currentR, currentY, unitPos.z * currentR, 1);
 
             // カオス度が高い場合の頂点ノイズ（最上段に近いほど強く揺らす）
-            if (maxMutationReached > 0.5f && ring > 0) {
+            if (maxMutationReached > 0.90f && ring > 0) {
                 float nStr = ofMap(maxMutationReached, 0.5, 1.0, 0, 120.0f, true) * ratio;
                 p.x += ofSignedNoise(p.x * 0.1, p.y * 0.1, ofGetElapsedTimef()) * nStr;
                 p.z += ofSignedNoise(p.z * 0.1, p.y * 0.1, ofGetElapsedTimef() + 10) * nStr;
@@ -1030,81 +1194,6 @@ int Tree::getCurrentDepth() {
 }
 </file>
 
-<file path="Tree.h">
-#pragma once
-#include "ofMain.h"
-#include "Constants.h"
-
-class Tree {
-public:
-    void setup(const ofJson& config); 
-    void update(int growthLevel, int chaosResist, int bloomLevel, GrowthType gType, FlowerType fType);
-    void draw();
-    void reset();
-
-    void water(float buff, int resilienceLevel, float increment);      // 長さを伸ばし、カオス度を下げる
-    void fertilize(float buff, int resilienceLevel, float increment);  // 太さを増し、カオス度を下げる
-    void kotodama(float buff);   // カオス度を上げる
-    void applyEvolution(GrowthType type);
-    void incrementDay() { if (dayCount < 50) dayCount++; }
-    void addDebugExp(float amt) { depthExp += amt; }
-    void setNeedsUpdate() { bNeedsUpdate = true; }
-
-    // --- アクセサ・ユーティリティ ---
-    float getLen() { return bLen; }
-    float getThick() { return bThick; }
-    float getMaxMutation() { return maxMutationReached; }
-    float getCurMutation() { return bMutation; }
-    float getDepthExp() { return depthExp; }
-    int getDepthLevel() { return depthLevel; }
-    int getCurrentDepth();
-    float getTotalLenEarned() { return totalLenEarned; }
-    float getTotalThickEarned() { return totalThickEarned; }
-    float getTotalMutationEarned() { return totalMutationEarned; }
-    int getDayCount() { return dayCount; }
-    int getSeed() { return seed; }
-    float getDepthProgress();
-    ofVboMesh& getVboMesh() { return vboMesh; }
-
-private:
-    // 内部ロジック：座標変換とメッシュ構築
-    glm::mat4 getNextBranchMatrix(glm::mat4 tipMat, int index, int total, float angleBase);
-    void buildBranchMesh(float length, float thickness, int depth, glm::mat4 mat, int chaosResist, int bloomLevel, GrowthType gType, FlowerType fType);
-    void addStemToMesh(float r1, float r2, float h, glm::mat4 mat, int chaosResist,int depth, GrowthType gType);
-    void addFlowerToMesh(float thickness, glm::mat4 mat, FlowerType type);
-    void addLeafToMesh(float thickness, glm::mat4 mat);
-    void addJointToMesh(float radius, glm::mat4 mat, ofColor col, int depth);
-    float getExpForDepth(int d);
-
-    // --- 育成パラメータ (b:現在値, t:目標値) ---
-    float bLen = 0, bThick = 0, bMutation = 0;
-    float tLen = 10, tThick = 2, tMutation = 0;
-    float depthExp = 0;
-    int depthLevel = 0;
-    float totalLenEarned = 0;
-    float totalThickEarned = 0;
-    float totalMutationEarned = 0;
-
-    // --- 状態管理 ---
-    ofVboMesh vboMesh; 
-    int seed;
-    int dayCount = 1;
-    float maxMutationReached = 0;
-    float lastMutation = 0;
-    bool bNeedsUpdate = true;
-
-    // --- JSON定数 ---
-    TreeSettings s;
-    /*int maxDepthConfig, currentDepth = 0;
-    float depthExpBase, depthExpPower;
-    float lengthVisualScale, thickVisualScale;
-    float branchLenRatio, branchThickRatio;
-    float baseAngle, mutationAngleMax;
-    float trunkHueStart, trunkHueEnd;
-    ofColor leafColor, flowerColor;*/
-};
-</file>
-
 <file path="src/ofApp.h">
 #pragma once
 #include "ofMain.h"
@@ -1148,6 +1237,11 @@ class ofApp : public ofBaseApp{
 		void draw();
 		void keyPressed(int key);
 		void mousePressed(int x, int y, int button);
+
+		void audioOut(ofSoundBuffer& buffer);
+		void loadPreset(int index);
+		void updateAudioEngine(float dt);
+		void triggerSynthSE(float freq);
 
 		// --- 各種イベント ---
 		void keyReleased(int key);
@@ -1204,6 +1298,12 @@ class ofApp : public ofBaseApp{
 		ofxPanel gui;
 		ofParameter<int> growthLevel, chaosResistLevel, bloomCatalystLevel;
 		ofxButton btnGrowth, btnResist, btnCatalyst;
+
+		// 音響リソース
+		ofSoundStream soundStream;
+		map<string, ofSoundPlayer> bgmMap;
+		map<string, ofSoundPlayer> seMap;
+		string currentBgmKey = "";
 
 		void drawControlPanel();
 		void drawViewModeOverlay();
@@ -1303,6 +1403,66 @@ void ofApp::setup() {
     cam.setFarClip(20000);
     cam.setTarget(ofVec3f(0, 0, 0));
     cam.disableMouseInput();
+
+    // 音響設定のロード
+    auto audioCfg = config["audio"];
+    state.audio.fadeSpeed = 1.0f / audioCfg["bgm"].value("fade_duration", 1.5f);
+
+    // BGMの準備
+    string keys[] = { "sunny", "rainy", "moonlight" };
+    for (auto& k : keys) {
+        string path = audioCfg["bgm"].value(k, "");
+        if (bgmMap[k].load(path)) {
+            bgmMap[k].setLoop(true);
+            bgmMap[k].setVolume(0);
+            bgmMap[k].play(); // 無音で流し続ける
+            state.audio.bgmTracks[k] = { 0.0f, 0.0f };
+        }
+    }
+    for (auto& pair : bgmMap) pair.second.setLoop(true);
+
+    // SEの準備
+    auto seCfg = audioCfg["se"];
+    for (auto it = seCfg.begin(); it != seCfg.end(); ++it) {
+        string key = it.key();
+        string path = it.value();
+        bool loaded = seMap[key].load(path);
+        seMap[key].setLoop(false);
+        seMap[key].setMultiPlay(true); // SEは重なって再生OK
+        if (!loaded) ofLogError("Audio") << "Failed to load SE: " << path;
+    }
+
+    // SoundStream開始 (2ch出力, 0ch入力, 44100Hz)
+    ofSoundStreamSettings settings;
+    settings.setOutListener(this);
+    settings.sampleRate = 44100;
+    settings.numOutputChannels = 2;
+    settings.numInputChannels = 0;
+    soundStream.setup(settings);
+
+    loadPreset(0);
+}
+
+void ofApp::loadPreset(int index) {
+    if (index < 0 || index >= config["presets"].size()) return;
+
+    state.currentPresetIndex = index;
+    auto p = config["presets"][index];
+
+    // 木を完全にリセットし、プリセットのパラメータを適用
+    myTree.reset();
+    // JSONの部分木を渡してTreeの設定を上書きする実装をTree.cppに追加想定
+    // myTree.loadSettings(p["tree"]); 
+
+    state.flashAlpha = 1.0f; // 切替時のフラッシュ演出
+
+    // プリセット固有のBGMがあれば切り替え
+    string nextBgm = p.value("bgm_type", "sunny");
+
+    // 目標音量の設定
+    for (auto& pair : state.audio.bgmTracks) {
+        pair.second.targetVol = (pair.first == nextBgm) ? 1.0f : 0.0f;
+    }
 }
 
 //--------------------------------------------------------------
@@ -1329,6 +1489,21 @@ void ofApp::update() {
     weather.update();
 
     updateCamera();
+
+    // シンセ音のエンベロープ（減衰）処理
+    state.audio.amplitude *= 0.92f;
+    state.audio.currentFreq = ofLerp(state.audio.currentFreq, state.audio.targetFreq, 0.1f);
+    // BGMクロスフェード処理
+    for (auto& pair : state.audio.bgmTracks) {
+        string key = pair.first;
+        AudioTrack& track = pair.second;
+
+        // 線形補間(Lerp)で音量を滑らかに変化させる
+        track.currentVol = ofLerp(track.currentVol, track.targetVol, state.audio.fadeSpeed * dt * 5.0f);
+        bgmMap[key].setVolume(track.currentVol * state.audio.volume);
+    }
+
+    updateAudioEngine(dt); // シンセ音の更新
 
     visualDepthProgress = ofLerp(visualDepthProgress, myTree.getDepthProgress(), 0.1f);
 
@@ -1404,19 +1579,50 @@ void ofApp::updateCamera() {
         // glm::mix (GLMのlerp) を使用してエラー回避 (修正点)
         cam.setPosition(glm::mix(cam.getPosition(), targetPos, lerpSpeed));
         cam.setTarget(glm::mix(cam.getTarget().getGlobalPosition(), targetLookAt, lerpSpeed));
-        //camAutoRotation += 0.2f;
-        //targetDist = max(600.0f, treeH * 1.5f);
-        //lookAtY = treeH * 0.4f;
-
-        //float rad = ofDegToRad(camAutoRotation);
-        //glm::vec3 targetPos(sin(rad) * targetDist, lookAtY + 100, cos(rad) * targetDist);
-
-        //cam.setTarget(glm::vec3(0, lookAtY, 0));
-        //cam.setPosition(targetPos);
-        //cam.lookAt(glm::vec3(0, lookAtY, 0));
     }
 }
 
+// --------------------------------------------------------------
+void ofApp::updateAudioEngine(float dt) {
+    // シンセ音の振幅を減衰させる（エンベロープ処理）
+    // これにより「ポーン」という打楽器的な減衰音が生まれる
+    state.audio.amplitude *= 0.94f;
+    if (state.audio.amplitude < 0.001f) state.audio.amplitude = 0;
+
+    // 周波数をターゲットへ滑らかに近づける（ポルタメント効果）
+    state.audio.currentFreq = ofLerp(state.audio.currentFreq, state.audio.targetFreq, 0.15f);
+
+    // カオス度（Mutation）が高い場合はノイズ成分を増やす
+    state.audio.noiseMix = ofLerp(state.audio.noiseMix, myTree.getCurMutation() * 0.5f, 0.1f);
+}
+
+// --------------------------------------------------------------
+void ofApp::triggerSynthSE(float freq) {
+    state.audio.targetFreq = freq;
+    state.audio.amplitude = state.audio.volume; // 音量を最大にして発音開始
+}
+
+// --------------------------------------------------------------
+void ofApp::audioOut(ofSoundBuffer& buffer) {
+    float sampleRate = 44100.0;
+    for (size_t i = 0; i < buffer.getNumFrames(); i++) {
+        state.audio.phaseStep = (TWO_PI * state.audio.currentFreq) / sampleRate;
+        state.audio.phase += state.audio.phaseStep;
+
+        // 純粋なサイン波
+        float sineSample = sin(state.audio.phase);
+
+        // 混沌度に応じたノイズ成分（ホワイトノイズ）
+        float noiseSample = ofRandom(-1.0, 1.0);
+
+        // ミックス
+        float finalSample = (sineSample * (1.0f - state.audio.noiseMix)) + (noiseSample * state.audio.noiseMix);
+        finalSample *= state.audio.amplitude;
+
+        buffer.getSample(i, 0) = finalSample;
+        buffer.getSample(i, 1) = finalSample;
+    }
+}
 
 //--------------------------------------------------------------
 void ofApp::draw() {
@@ -1444,7 +1650,9 @@ void ofApp::draw() {
     weather.draw2D();
 
     if (state.bViewMode) drawViewModeOverlay();
-    else drawHUD();
+    else if (!state.bCinematicMode) {
+        drawHUD();
+    }
 
     if (state.bShowDebug) drawDebugOverlay();
 }
@@ -1970,19 +2178,26 @@ void ofApp::executeCommand(CommandType type) {
     state.lastCommandIndex = static_cast<int>(type);
 
     auto& g = config["game"];
+    float pitchBase = 440.0f + (myTree.getLen() * 0.5f);
 
     switch (type) {
     case CMD_WATER:
         myTree.water(1.0, state.resilienceLevel, g.value("water_increment", 15.0f));
         spawn2DEffect(P_WATER);
+        seMap["water"].play();
+        triggerSynthSE(pitchBase);
         break;
     case CMD_FERTILIZER:
         myTree.fertilize(1.0, state.resilienceLevel, g.value("fertilize_increment", 8.0f));
         spawn2DEffect(P_FERTILIZER);
+        seMap["fertilize"].play();
+        triggerSynthSE(pitchBase * 0.75f);
         break;
     case CMD_KOTODAMA:
         myTree.kotodama(1.0);
         spawn2DEffect(P_KOTODAMA);
+        seMap["kotodama"].play();
+        triggerSynthSE(pitchBase * 1.5f);
         break;
     }
 
@@ -2019,6 +2234,12 @@ void ofApp::keyPressed(int key) {
         state.bGameEnded = false;
     }
     if (state.bShowDebug) {
+        // プリセット切替 (5-0キー)
+        if (key >= '5' && key <= '9') loadPreset(key - '5');
+        if (key == '0') loadPreset(5);
+
+        // シネマティックモード切替
+        if (key == 'h' || key == 'H') state.bCinematicMode = !state.bCinematicMode;
         if (key == 'w' || key == 'W') weather.randomize();
         // [T]キーで日数を一気に進める
         if (key == 't' || key == 'T') {

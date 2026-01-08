@@ -33,12 +33,21 @@ struct UISettings {
     ofColor colShadow = ofColor(0, 0, 0, 150);
 };
 
+struct AudioTrack {
+    float currentVol = 0.0f;
+    float targetVol = 0.0f;
+};
+
 struct AudioState {
-    float masterVolume = 0.5f;
-    float synthFreq = 440.0f;
-    float synthAmp = 0.0f; // 鳴らす瞬間だけ上げる
+    float volume = 0.2f;      // マスター音量
     float phase = 0.0f;
-    bool bMuted = false;
+    float phaseStep = 0.0f;
+    float targetFreq = 440.0f;
+    float currentFreq = 440.0f;
+    float amplitude = 0.0f;   // 現在の音量（トリガーで上昇し、自動減衰する）
+    float noiseMix = 0.0f;    // 混沌度に応じたノイズ混入率
+    map<string, AudioTrack> bgmTracks; // 各BGMの状態を保持
+    float fadeSpeed = 1.0f;            // フェードの速さ
 };
 
 struct SigilRing {
@@ -73,9 +82,10 @@ struct GameState {
     FlowerType currentFlowerType = FLOWER_NONE;
     int resilienceLevel = 0;
     float actionCooldown = 0.0f;
+
+    bool bCinematicMode = false;
+    float flashAlpha = 0.0f;
     int currentPresetIndex = 0;
-    bool bCinematicMode = false; // HUD非表示フラグ
-    float flashAlpha = 0.0f;    // プリセット切替時の閃光演出用
 
     UISettings ui;
 
@@ -91,7 +101,7 @@ struct GameState {
     vector<SigilRing> sigils;
 
     int auraLayers = 2;
-    float sigilSpeed = 1.0f;
+    float sigilRotationSpeed = 45.0f;
 };
 
 struct Particle2D {

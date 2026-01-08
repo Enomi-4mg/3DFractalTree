@@ -41,6 +41,11 @@ class ofApp : public ofBaseApp{
 		void keyPressed(int key);
 		void mousePressed(int x, int y, int button);
 
+		void audioOut(ofSoundBuffer& buffer);
+		void loadPreset(int index);
+		void updateAudioEngine(float dt);
+		void triggerSynthSE(float freq);
+
 		// --- 各種イベント ---
 		void keyReleased(int key);
 		void mouseMoved(int x, int y );
@@ -69,6 +74,7 @@ class ofApp : public ofBaseApp{
 		void updateCamera();
 		void setupLighting();
 		void spawn2DEffect(ParticleType type);
+		void updateWeatherBGM();
 
 		// --- スキル処理 ---
 		void upgradeGrowth();
@@ -96,6 +102,12 @@ class ofApp : public ofBaseApp{
 		ofxPanel gui;
 		ofParameter<int> growthLevel, chaosResistLevel, bloomCatalystLevel;
 		ofxButton btnGrowth, btnResist, btnCatalyst;
+
+		// 音響リソース
+		ofSoundStream soundStream;
+		map<string, ofSoundPlayer> bgmMap;
+		map<string, ofSoundPlayer> seMap;
+		string currentBgmKey = "";
 
 		void drawControlPanel();
 		void drawViewModeOverlay();
