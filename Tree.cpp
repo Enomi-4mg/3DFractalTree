@@ -127,6 +127,12 @@ void Tree::buildBranchMesh(float length, float thickness, int depth, glm::mat4 m
     // 枝の先端の行列を計算
     glm::mat4 tipMat = glm::translate(mat, glm::vec3(0, length, 0));
 
+    //float hueBase = ofMap(bMutation, 0, 1, s.trunkHueStart, s.trunkHueEnd);
+    //float finalHue = fmod(hueBase + (ofGetElapsedTimef() * (gType == TYPE_ELDRITCH ? 100.0f : 20.0f)) + (depth * 10), 255.0f);
+    //ofColor col = ofColor::fromHsb(finalHue, 160, 180 + (depth * 10));
+
+    //addJointToMesh(thickness * s.branchThickRatio, tipMat, col, depth);
+
     // --- 装飾（葉・花）のロジック ---
     float bloomThreshold = 0.4f - (bloomLevel * 0.05f);
     bool isBloomed = (maxMutationReached > bloomThreshold);
@@ -315,6 +321,37 @@ void Tree::addFlowerToMesh(float thickness, glm::mat4 mat, FlowerType type) {
         // 四面体のインデックス
         int idxs[] = { 0,1,2, 0,2,3, 0,3,1 };
         for (int id : idxs) vboMesh.addIndex(startIndex + id);
+    }
+}
+
+void Tree::addJointToMesh(float radius, glm::mat4 mat, ofColor col, int depth) {
+    // LOD: 先端の細い枝ほどポリゴンを削る
+    int rings = (depth <= 2) ? 4 : 6;
+    int sectors = (depth <= 2) ? 4 : 6;
+    int startIndex = vboMesh.getNumVertices();
+    glm::mat3 normalMatrix = glm::inverseTranspose(glm::mat3(mat));
+
+    for (int r = 0; r <= rings; r++) {
+        float phi = PI * (float)r / rings;
+        for (int s = 0; s <= sectors; s++) {
+            float theta = TWO_PI * (float)s / sectors;
+
+            glm::vec3 unitPos(sin(phi) * cos(theta), cos(phi), sin(phi) * sin(theta));
+            vboMesh.addVertex(glm::vec3(mat * glm::vec4(unitPos * radius, 1.0)));
+            vboMesh.addNormal(normalMatrix * unitPos);
+            vboMesh.addColor(col);
+        }
+    }
+
+    for (int r = 0; r < rings; r++) {
+        for (int s = 0; s < sectors; s++) {
+            int v0 = startIndex + r * (sectors + 1) + s;
+            int v1 = v0 + 1;
+            int v2 = startIndex + (r + 1) * (sectors + 1) + s;
+            int v3 = v2 + 1;
+            vboMesh.addIndex(v0); vboMesh.addIndex(v1); vboMesh.addIndex(v2);
+            vboMesh.addIndex(v1); vboMesh.addIndex(v3); vboMesh.addIndex(v2);
+        }
     }
 }
 

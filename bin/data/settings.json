@@ -9,11 +9,15 @@
         "branch_thick_ratio": 0.7,
         "base_angle": 25.0,
         "mutation_angle_max": 45.0,
+        "joint_scale": 1.05,
         "colors": {
             "trunk_hue_start": 20,
             "trunk_hue_end": 160,
             "leaf": [60, 150, 60, 200],
-            "flower": [255, 180, 200]
+            "flower": [255, 180, 200],
+            "elegant": [180, 220, 255], 
+            "sturdy": [150, 255, 100],
+            "eldritch": [255, 50, 100]
         }
     },
     "camera": {
@@ -56,6 +60,16 @@
         "status_pos": {
             "top": 30,
             "right": 30
+        },
+        "aura": {
+            "duration": 1.5,
+            "beam_count": 12,
+            "flicker_speed": 15.0
+        },
+        "skill_costs": {
+            "growth": 1,
+            "resist": 1,
+            "catalyst": 1
         }
     }
 }

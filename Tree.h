@@ -38,6 +38,7 @@ private:
     void addStemToMesh(float r1, float r2, float h, glm::mat4 mat, int chaosResist,int depth, GrowthType gType);
     void addFlowerToMesh(float thickness, glm::mat4 mat, FlowerType type);
     void addLeafToMesh(float thickness, glm::mat4 mat);
+    void addJointToMesh(float radius, glm::mat4 mat, ofColor col, int depth);
     float getExpForDepth(int d);
 
     // --- 育成パラメータ (b:現在値, t:目標値) ---
