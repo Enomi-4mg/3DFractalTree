@@ -33,6 +33,21 @@ struct UISettings {
     ofColor colShadow = ofColor(0, 0, 0, 150);
 };
 
+struct AudioState {
+    float masterVolume = 0.5f;
+    float synthFreq = 440.0f;
+    float synthAmp = 0.0f; // 鳴らす瞬間だけ上げる
+    float phase = 0.0f;
+    bool bMuted = false;
+};
+
+struct SigilRing {
+    float radius;
+    float rotation;
+    float speed;
+    int resolution; // 3 = 三角形, 6 = 六角形など
+};
+
 struct TreeSettings {
     int maxDepth;
     float expBase, expPower;
@@ -58,6 +73,10 @@ struct GameState {
     FlowerType currentFlowerType = FLOWER_NONE;
     int resilienceLevel = 0;
     float actionCooldown = 0.0f;
+    int currentPresetIndex = 0;
+    bool bCinematicMode = false; // HUD非表示フラグ
+    float flashAlpha = 0.0f;    // プリセット切替時の閃光演出用
+
     UISettings ui;
 
     EvolutionFlags evo;
@@ -67,6 +86,12 @@ struct GameState {
     float levelUpBubbleTimer = 0.0f;
     int lastCommandIndex = -1;
     ofColor auraColor = ofColor(255, 255, 255);
+
+    AudioState audio;
+    vector<SigilRing> sigils;
+
+    int auraLayers = 2;
+    float sigilSpeed = 1.0f;
 };
 
 struct Particle2D {
