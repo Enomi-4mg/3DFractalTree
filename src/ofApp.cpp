@@ -7,12 +7,11 @@ void ofApp::setup() {
     ofEnableSmoothing();
 
     config = ofLoadJson("settings.json");
-    if (config.empty()) {
-        ofLogError("ofApp") << "settings.json not found! Using hardcoded defaults.";
-        config["game"]["water_increment"] = 15.0;
-        config["game"]["fertilize_increment"] = 8.0;
-        config["camera"]["height_factor"] = 3.5;
+    if (config.empty() || !config.contains("ui") || !config.contains("tree")) {
+        ofLogError("ofApp") << "Critical: settings.json is missing or corrupted!";
+        // ここで詳細なデフォルト値をセットするか、ofSystemAlertDialogで警告を出す
     }
+
     mainFont.load("verdana.ttf", 10, true, true);
 
     // UI設定の読み込み
@@ -32,11 +31,11 @@ void ofApp::setup() {
     state.ui.btnBottomOffset = btn.value("bottom_offset", 60.0f);
 
     auto col = ui["colors"];
-    state.ui.colIdle.set(col["idle"][0], col["idle"][1], col["idle"][2], col["idle"][3]);
-    state.ui.colHover.set(col["hover"][0], col["hover"][1], col["hover"][2], col["hover"][3]);
-    state.ui.colActive.set(col["active"][0], col["active"][1], col["active"][2], col["active"][3]);
-    state.ui.colLocked.set(col["locked"][0], col["locked"][1], col["locked"][2], col["locked"][3]);
-    state.ui.colText.set(col["text"][0], col["text"][1], col["text"][2], col["text"][3]);
+    state.ui.colIdle = jsonToColor(col["idle"], ofColor(60, 60, 70, 200));
+    state.ui.colHover = jsonToColor(col["hover"], ofColor(100, 100, 130, 255));
+    state.ui.colActive = jsonToColor(col["active"], ofColor(180, 180, 220, 255));
+    state.ui.colLocked = jsonToColor(col["locked"], ofColor(40, 40, 40, 150));
+    state.ui.colText = jsonToColor(col["text"], ofColor(255, 255, 255, 255));
 
     state.ui.cooldownDuration = ui.value("cooldown_time", 1.0f);
     state.ui.statusTop = ui["status_pos"].value("top", 30.0f);
@@ -44,13 +43,18 @@ void ofApp::setup() {
 
     // state構造体の初期化
     state.skillPoints = 3;
+    state.dayCount = 0;
+    visualDepthProgress = 0;
     state.maxDays = config["game"].value("max_days", 50);
     state.bGameEnded = false;
     state.bViewMode = false;
     state.bShowDebug = false;
 
+    state.currentPresetIndex = -1;
+
     myTree.setup(config);
     lastDepthLevel = myTree.getDepthLevel();
+
 
     weather.setup();
     ground.setup();
@@ -81,6 +85,9 @@ void ofApp::setup() {
 
     // 音響設定のロード
     auto audioCfg = config["audio"];
+    state.audio.volume = audioCfg.value("master_volume", 0.5f);
+    state.audio.bgmRatio = audioCfg.value("bgm_volume_ratio", 0.7f);
+    state.audio.seRatio = audioCfg.value("se_volume_ratio", 1.0f);
     state.audio.fadeSpeed = 1.0f / audioCfg["bgm"].value("fade_duration", 1.5f);
 
     // BGMの準備
@@ -115,7 +122,6 @@ void ofApp::setup() {
     settings.numInputChannels = 0;
     soundStream.setup(settings);
 
-    loadPreset(0);
     updateWeatherBGM();
 }
 
@@ -139,20 +145,29 @@ void ofApp::loadPreset(int index) {
     state.currentPresetIndex = index;
     auto p = config["presets"][index];
 
-    // 木を完全にリセットし、プリセットのパラメータを適用
+    // 1. 木の完全リセットと完成ロード
+    myTree.setup(config); 
     myTree.reset();
-    // JSONの部分木を渡してTreeの設定を上書きする実装をTree.cppに追加想定
-    // myTree.loadSettings(p["tree"]); 
+    myTree.loadPresetConfig(p["tree"]); 
 
-    state.flashAlpha = 1.0f; // 切替時のフラッシュ演出
+    // 2. 天候の反映
+    string wStr = p.value("weather", "SUNNY");
+    if (wStr == "SUNNY") weather.state = SUNNY;
+    else if (wStr == "RAINY") weather.state = RAINY;
+    else if (wStr == "MOONLIGHT") weather.state = MOONLIGHT;
+    updateWeatherBGM();
 
-    // プリセット固有のBGMがあれば切り替え
-    string nextBgm = p.value("bgm_type", "sunny");
+    // 3. デモ状態の固定
+	state.dayCount = state.maxDays - ofRandom(0, 5);
+    state.bGameEnded = true; 
+    visualDepthProgress = 1.0f;
+    state.flashAlpha = 1.0f;
 
-    // 目標音量の設定
-    for (auto& pair : state.audio.bgmTracks) {
-        pair.second.targetVol = (pair.first == nextBgm) ? 1.0f : 0.0f;
-    }
+    // 4. 進化タイプ・色の反映
+    state.currentType = (GrowthType)p.value("evo_type", 0);
+    state.currentFlowerType = (FlowerType)p.value("flower_type", 0);
+    auto col = p["aura_color"];
+    state.auraColor = jsonToColor(p["aura_color"], ofColor::white);
 }
 
 //--------------------------------------------------------------
@@ -187,10 +202,10 @@ void ofApp::update() {
     for (auto& pair : state.audio.bgmTracks) {
         string key = pair.first;
         AudioTrack& track = pair.second;
-
-        // 線形補間(Lerp)で音量を滑らかに変化させる
         track.currentVol = ofLerp(track.currentVol, track.targetVol, state.audio.fadeSpeed * dt * 5.0f);
-        bgmMap[key].setVolume(track.currentVol * state.audio.volume);
+
+        // マスター音量 * BGM比率 * フェード値を適用
+        bgmMap[key].setVolume(track.currentVol * state.audio.volume * state.audio.bgmRatio);
     }
 
     updateAudioEngine(dt); // シンセ音の更新
@@ -869,23 +884,27 @@ void ofApp::executeCommand(CommandType type) {
 
     auto& g = config["game"];
     float pitchBase = 440.0f + (myTree.getLen() * 0.5f);
+    float seVol = state.audio.volume * state.audio.seRatio;
 
     switch (type) {
     case CMD_WATER:
         myTree.water(1.0, state.resilienceLevel, g.value("water_increment", 15.0f));
         spawn2DEffect(P_WATER);
+        seMap["water"].setVolume(seVol);
         seMap["water"].play();
         triggerSynthSE(pitchBase);
         break;
     case CMD_FERTILIZER:
         myTree.fertilize(1.0, state.resilienceLevel, g.value("fertilize_increment", 8.0f));
         spawn2DEffect(P_FERTILIZER);
+        seMap["fertilize"].setVolume(seVol);
         seMap["fertilize"].play();
         triggerSynthSE(pitchBase * 0.75f);
         break;
     case CMD_KOTODAMA:
         myTree.kotodama(1.0);
         spawn2DEffect(P_KOTODAMA);
+        seMap["kotodama"].setVolume(seVol);
         seMap["kotodama"].play();
         triggerSynthSE(pitchBase * 1.5f);
         break;
@@ -916,23 +935,40 @@ void ofApp::keyPressed(int key) {
         state.bViewMode ? cam.enableMouseInput() : cam.disableMouseInput();
     }
     if (key == 'r' || key == 'R') {
+        state.currentPresetIndex = -1;
+        myTree.setup(config);
         myTree.reset();
-        particles.clear();
-        particles2D.clear();
+
+        // 全てのゲーム状態を Day 1 に戻す
+        state.dayCount = 0;
         state.skillPoints = 3;
+        state.bGameEnded = false;
+        state.currentType = TYPE_DEFAULT;
+        state.currentFlowerType = FLOWER_NONE;
+        visualDepthProgress = 0;
+        lastDepthLevel = 0;
         growthLevel = 0;
         chaosResistLevel = 0;
         bloomCatalystLevel = 0;
-        state.bGameEnded = false;
+
+        weather.state = SUNNY;
+        updateWeatherBGM();
+        ofLogNotice("System") << "Returned to Normal Gameplay (Day 0)";
     }
+	// 音量調整
+    if (key == '[') state.audio.volume = ofClamp(state.audio.volume - 0.05f, 0, 1);
+    if (key == ']') state.audio.volume = ofClamp(state.audio.volume + 0.05f, 0, 1);
     if (state.bShowDebug) {
-        // プリセット切替 (5-0キー)
-        if (key >= '5' && key <= '9') loadPreset(key - '5');
-        if (key == '0') loadPreset(5);
+        if (key == '4') loadPreset(0);
+        else if (key >= '5' && key <= '9') loadPreset(key - '5' + 1);
+        else if (key == '0') loadPreset(6);
 
         // シネマティックモード切替
         if (key == 'h' || key == 'H') state.bCinematicMode = !state.bCinematicMode;
-        if (key == 'w' || key == 'W') updateWeatherBGM(); weather.randomize();
+        if (key == 'w' || key == 'W') {
+            weather.randomize();
+            updateWeatherBGM();
+        }
         // [T]キーで日数を一気に進める
         if (key == 't' || key == 'T') {
             for (int i = 0; i < 5; i++) {

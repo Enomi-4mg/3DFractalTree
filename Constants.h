@@ -40,6 +40,8 @@ struct AudioTrack {
 
 struct AudioState {
     float volume = 0.2f;      // マスター音量
+    float bgmRatio = 0.7f;      // BGM比率
+    float seRatio = 1.0f;       // SE比率
     float phase = 0.0f;
     float phaseStep = 0.0f;
     float targetFreq = 440.0f;

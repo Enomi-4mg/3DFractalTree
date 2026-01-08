@@ -349,18 +349,54 @@ void Tree::addJointToMesh(float radius, glm::mat4 mat, ofColor col, int depth) {
     }
 }
 
+void Tree::loadPresetConfig(const ofJson& pt) {
+    // ショーケース用の深度設定
+    s.maxDepth = pt.value("max_depth", 6);
+    depthLevel = s.maxDepth;
+    depthExp = getExpForDepth(depthLevel);
+
+    // 形状のバリエーションをパラメータから復元
+    if (pt.contains("base_angle")) s.baseAngle = pt["base_angle"];
+    if (pt.contains("branch_length_ratio")) s.branchLenRatio = pt["branch_length_ratio"];
+    if (pt.contains("branch_thick_ratio")) s.branchThickRatio = pt["branch_thick_ratio"];
+    if (pt.contains("trunk_hue_start")) s.trunkHueStart = pt["trunk_hue_start"];
+    if (pt.contains("twist_factor")) s.twistFactor = pt["twist_factor"];
+
+    // 葉の色の上書き
+    if (pt.contains("leaf_color")) {
+        auto c = pt["leaf_color"];
+        s.leafColor = ofColor(c[0], c[1], c[2]);
+    }
+
+    // --- デモ用：目標値と現在値を同期 ---
+    // これにより、Lerpを介さずに一瞬で「育ち切った姿」が表示されます
+    tLen = pt.value("target_len", 150.0f);
+    tThick = pt.value("target_thick", 12.0f);
+    tMutation = pt.value("target_mutation", 0.0f);
+
+    bLen = tLen;
+    bThick = tThick;
+    bMutation = tMutation;
+
+    bNeedsUpdate = true;
+}
+
 void Tree::reset() {
-    // 育成状態の初期化
+    // 育成状態の完全初期化
     dayCount = 1;
     maxMutationReached = 0;
     depthExp = 0;
     depthLevel = 0;
-    // パラメータを初期値へ
+
+    // 目標値と現在値を一気に 0 ではなく初期形状へ
     bLen = 0; tLen = 10;
     bThick = 0; tThick = 2;
     bMutation = 0; tMutation = 0;
 
-    // 木の形状シードを再生成
+    totalLenEarned = 0;
+    totalThickEarned = 0;
+    totalMutationEarned = 0;
+
     seed = ofRandom(99999);
     vboMesh.clear();
     bNeedsUpdate = true;

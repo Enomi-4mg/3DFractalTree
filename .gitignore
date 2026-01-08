@@ -1,8 +1,13 @@
 /bin/*
 !/bin/data/
+# audioフォルダ内の音声ファイルを無視
+/bin/data/audio/*.mp3
+/bin/data/audio/*.wav
+# jsonやxmlは除外(追跡する)
+!/bin/data/*.json
+!/bin/data/*.xml
 /obj/
 /.vs/
 *.sln
 *.vcxproj
 *.user
-Verdana.ttf

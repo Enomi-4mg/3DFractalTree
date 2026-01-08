@@ -17,6 +17,8 @@ public:
     void addDebugExp(float amt) { depthExp += amt; }
     void setNeedsUpdate() { bNeedsUpdate = true; }
 
+    void loadPresetConfig(const ofJson& presetTreeConfig); // 追加：プリセットの差分適用
+
     // --- アクセサ・ユーティリティ ---
     float getLen() { return bLen; }
     float getThick() { return bThick; }
@@ -62,11 +64,4 @@ private:
 
     // --- JSON定数 ---
     TreeSettings s;
-    /*int maxDepthConfig, currentDepth = 0;
-    float depthExpBase, depthExpPower;
-    float lengthVisualScale, thickVisualScale;
-    float branchLenRatio, branchThickRatio;
-    float baseAngle, mutationAngleMax;
-    float trunkHueStart, trunkHueEnd;
-    ofColor leafColor, flowerColor;*/
 };

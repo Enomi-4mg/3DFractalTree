@@ -45,6 +45,17 @@ class ofApp : public ofBaseApp{
 		void loadPreset(int index);
 		void updateAudioEngine(float dt);
 		void triggerSynthSE(float freq);
+		ofColor jsonToColor(const nlohmann::json& j, ofColor defaultCol = ofColor::white) {
+			if (j.is_array() && j.size() >= 3) {
+				return ofColor(
+					(int)j[0],
+					(int)j[1],
+					(int)j[2],
+					(j.size() > 3 ? (int)j[3] : 255)
+				);
+			}
+			return defaultCol;
+		}
 
 		// --- 各種イベント ---
 		void keyReleased(int key);
