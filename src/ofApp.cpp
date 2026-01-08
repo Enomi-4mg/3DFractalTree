@@ -848,28 +848,34 @@ void ofApp::processCommand(int key) {
 
 // --- スキル処理 ---
 void ofApp::upgradeGrowth() { 
-    if (state.skillPoints > 0 && growthLevel < 5) { 
+    int cost = config["game"]["skill_costs"].value("growth", 1);
+    if (state.skillPoints >= cost && growthLevel < 5) {
         growthLevel++; state.skillPoints--;
         triggerAura(ofColor(180, 220, 255));
     } 
 }
-void ofApp::upgradeResist() { 
-    if (state.skillPoints > 0 && chaosResistLevel < 5) { 
+void ofApp::upgradeResist() {
+    int cost = config["game"]["skill_costs"].value("resist", 1);
+    if (state.skillPoints >= cost && chaosResistLevel < 5) { 
         chaosResistLevel++; state.skillPoints--; 
         triggerAura(ofColor(150, 255, 100));
     } 
 }
-void ofApp::upgradeCatalyst() { 
-    if (state.skillPoints > 0 && bloomCatalystLevel < 5) { 
+void ofApp::upgradeCatalyst() {
+    int cost = config["game"]["skill_costs"].value("catalyst", 1);
+    if (state.skillPoints >= cost && bloomCatalystLevel < 5) { 
         bloomCatalystLevel++; state.skillPoints--; 
         triggerAura(ofColor(255, 150, 200));
     } 
 }
 
 void ofApp::checkEvolution() {
+    auto& g = config["game"];
     int day = myTree.getDayCount();
+    int dayBranch = g.value("evo_day_branch", 20);
+    int dayBloom = g.value("evo_day_bloom", 40);
     // 20日目かつ、まだデフォルト状態の場合のみ実行
-    if (day == 20 && state.currentType == TYPE_DEFAULT) {
+    if (day == dayBranch && state.currentType == TYPE_DEFAULT) {
         float L = myTree.getTotalLenEarned();
         float T = myTree.getTotalThickEarned();
         float M = myTree.getTotalMutationEarned();
@@ -889,7 +895,7 @@ void ofApp::checkEvolution() {
 
         ofLogNotice("Evolution") << "Tree evolved into Type: " << state.currentType;
     }
-    if (day == 40 && state.currentFlowerType == FLOWER_NONE) {
+    if (day == dayBloom && state.currentFlowerType == FLOWER_NONE) {
         // 現在の成長タイプに応じて花の形を決定
         if (state.currentType == TYPE_ELEGANT) state.currentFlowerType = FLOWER_CRYSTAL;
         else if (state.currentType == TYPE_STURDY) state.currentFlowerType = FLOWER_PETAL;

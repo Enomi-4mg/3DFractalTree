@@ -17,7 +17,10 @@
             "flower": [255, 180, 200],
             "elegant": [180, 220, 255], 
             "sturdy": [150, 255, 100],
-            "eldritch": [255, 50, 100]
+            "eldritch": [255, 50, 100],
+            "aura_growth": [180, 220, 255],
+            "aura_resist": [150, 255, 100],
+            "aura_catalyst": [255, 150, 200]
         }
     },
     "camera": {
@@ -35,7 +38,14 @@
         "max_days": 50,
         "skill_interval": 5,
         "water_increment": 15.0,
-        "fertilize_increment": 8.0
+        "evo_day_branch": 20,
+        "evo_day_bloom": 40,
+        "fertilize_increment": 8.0,
+        "skill_costs": {
+            "growth": 1,
+            "resist": 1,
+            "catalyst": 1
+        }
     },
     "ui": {
         "labels": {
@@ -70,6 +80,19 @@
             "growth": 1,
             "resist": 1,
             "catalyst": 1
+        }
+    },
+    "effects": {
+        "kotodama": {
+            "particle_count": 15,
+            "spiral_speed": 8.0,
+            "min_radius_ratio": 0.4,
+            "max_radius_ratio": 0.8
+        },
+        "aura": {
+            "duration": 1.8,
+            "beam_count": 15,
+            "flicker_speed": 40.0
         }
     }
 }
