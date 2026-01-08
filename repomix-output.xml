@@ -145,9 +145,9 @@ public:
         decay = ofRandom(0.01f, 0.03f); // 約1〜3秒で消滅
     }
 
-    void update() {
-        pos += vel;
-        life -= decay;
+    void update(float dt) {
+        pos += vel * (dt * 60.0f);
+        life -= decay * (dt * 60.0f);
     }
 
     void draw() {
@@ -159,56 +159,62 @@ public:
 </file>
 
 <file path="README.md">
-# **3Dフラクタル成長シミュレーター 開発計画書 Ver.8.5**
+# **3Dフラクタル成長シミュレーター 仕様書 Ver.9.0**
 
 ## **1\. プロジェクト概要**
 
-C++およびopenFrameworksを用いた、フラクタル構造の動的生成および成長シミュレーター。外部設定ファイル（JSON）によるパラメータ管理、VBOを用いた描画最適化、累進的経験値システムを特徴とする。
+C++およびopenFrameworks v0.12.1を用いた、フラクタル構造の動的生成および成長シミュレーター。VBOによる描画最適化、外部JSONによる定数管理、および専用のGUIシステムを備える。
 
-## **操作方法**
+## **2\. 操作方法**
 
-| button | 操作 |
-| ------ | --- |
-|1, 2, 3 | 育成コマンド実行 |
-| V | View Mode (カメラ自由操作) 切替 |
-| D | 詳細デバッグ情報の表示切替 |
-| R | シミュレーターの全初期化 |
-| T (Debug) | 日数を5日分進め、進化判定を実行 |
-| E (Debug) | 成長タイプを「TYPE_ELDRITCH」へ強制変更 |
-| F (Debug) | 花の形状を「FLOWER_SPIRIT」へ強制変更 |
-| W (Debug) | 天候（Weather）切替（デバッグ用） |
+### **メイン操作 (GUI / マウス)**
 
-## **2\. システム構成 (Architecture)**
+* **下部アクションバー**: 育成コマンド（WATER, FERTILIZE, KOTODAMA）の実行。  
+* **右側成長スロット**: スキルアップグレード（GROWTH, RESIST, CATALYST）の実行。  
+* **クールタイム**: コマンド実行後、settings.json で指定された秒数（デフォルト1.0s）は操作がロックされる。
 
-* **開発環境**: Visual Studio 2022 / openFrameworks v0.12.1
+### **キーボードショートカット**
 
-* **外部依存**: ofxGui (標準アドオン)、verdana.ttf (フォントファイル)
+| Key | 機能 |
+| :---- | :---- |
+| 1, 2, 3 | 育成コマンド (Water, Fertilizer, Kotodama) |
+| V | View Mode (カメラ自由操作) の切り替え |
+| D | デバッグ情報の表示/非表示切り替え |
+| R | システムの全初期化 (Reset) |
+| **(Debug Mode)** | **DキーがONの時のみ有効** |
+| T | 日数を5日分進め、進化判定を強制実行 |
+| E | 成長タイプをサイクル切り替え (DEFAULT \-\> ELEGANT \-\> STURDY \-\> ELDRITCH) |
+| F | 花の形状をサイクル切り替え (NONE \-\> CRYSTAL \-\> PETAL \-\> SPIRIT) |
+| P | スキルポイント無限化 (99ポイント固定) のトグル |
+| Space | 時間（日数）の進行停止トグル |
+| \+ / \= | 経験値を50ポイント加算 (レベルアップ演出のテスト用) |
 
-* **データ管理**: `settings.json`による定数の外部保持（読み込み失敗時のフォールバック機能付き）。
+## **3\. 技術仕様・システム構成**
 
-* **主要クラス**:
-  * **ofApp**: メインループ、入力管理、カメラ制御（自動追従/手動切替）、照明制御を担当、パーティクル寿命管理。 
-  * **Tree**: フラクタル再帰計算（VBO構築）s、メッシュ生成、成長ロジック（Exp/Lv制）、パラメータ補間（Lerp）を担当。
-  * **Weather**: 天候状態（SUNNY, RAINY, MOONLIGHT）の管理、背景色・バフ計算、2Dエフェクトを担当。
-  * **Ground**: 平原の描画。
-  * **Particle / Particle2D**: インスタンス化されたパーティクルの移動・描画ロジック。
+### **3.1 描画エンジン (Tree クラス)**
 
+* **VBOインデックス描画**: 枝、葉、花を単一の ofVboMesh に集約。  
+* **枝の形状**: 1本の枝を縦方向に4分割（5断面）し、twistFactor によるねじれとテーパリングを実装。  
+* **LOD制御**: 再帰深度に基づき、断面の頂点数を 3〜5 に動的調整。
+
+### **3.2 UI・演出システム (ofApp クラス)**
+
+* **二段構えプログレスバー**: 経験値が100%に達した際、「発光保持 (0.4s)」を経てからリセットされるアニメーションを実装。  
+* **進化勲章システム**: 画面左側に進化状態を記号（◇:ELEGANT, □:STURDY, ◎:ELDRITCH, ✿:BLOOM）で表示。達成時にタイプ別のイメージカラーで点灯。  
+* **オーラ演出**: OF\_BLENDMODE\_ADD を用いた色加算描画。スキルアップ時に木の根元から上空へ向けて、鋭い直線状の光芒（AuraBeam）を生成・明滅させる。  
+* **レスポンシブ配置**: getUIScale() により、解像度 1024x768 を基準とした自動スケーリングを適用。
+
+### **3.3 データ管理構造**
+
+* **Constants.h**: 全データ構造 (GameState, UISettings, AuraBeam 等) および列挙型を単一ファイルに集約。  
+* **settings.json**: 木の物理パラメータ、カメラ設定、天候背景色、UI座標、ボタン色、オーラ演出定数を外部保持。
 ## **3\. 技術仕様・主要機能**
 
-### **3.1 成長システム**
+### **3.4 成長システム**
 
-* **経験値・レベル（深さ）管理**:
-  * 木の「長さ（bLen）」と「太さ（bThick）」を独立した経験値として管理。
-  * 枝の再帰深度（Depth）は、太さ（bThick）が指定の累積しきい値を超えた際に増加する。
-  * しきい値計算式: $base \times depth^{power}$ （指数関数的な累進性）。
-
-* **進化システム（不可逆分岐）**
-  * **Day 20（成長タイプ分岐）**: 累積された長さ、太さ、変異度のうち最大の値に応じて「ELEGANT」「STURDY」「ELDRITCH」のいずれかに固定。
-  * **Day 40（花の形状分岐）**: 成長タイプに応じて「CRYSTAL（結晶）」「PETAL（花弁）」「SPIRIT（霊魂）」の形状へ変化。
-
-* **シームレス・アニメーション**:
-  * 各パラメータは`lerp`により毎フレーム目標値へ補間される。
-  * パラメータが一定以上の変化量を持つ期間のみ、`ofVboMesh`のクリアおよび再構築を実行し、CPU負荷を抑制。
+* **進化分岐**: Day 20 (樹形分岐), Day 40 (開花分岐)。  
+* **スキルバフ**: Resilience による副作用軽減、Catalyst による開花しきい値の緩和。  
+* **デバッグHUD**: 画面左側のゲームUIの上に、FPS、頂点数、経験値詳細等のスタッツを透過重ね表示。
 
 * **コマンドと増分・トレードオフ**:
   * **Water**: `depthExp`+, `長さ`++, `太さ`-, `変異度`--
@@ -216,10 +222,8 @@ C++およびopenFrameworksを用いた、フラクタル構造の動的生成お
   * **Kotodama**: `depthExp`++, `長さ`+, `太さ`-, `変異度`++
 
 * **描画・最適化**
-  * **VBO集約**: 枝（五角柱/三角柱）、葉（菱形）、花（形状分岐）の全データを単一の`ofVboMesh`で管理し、インデックス参照によりドローコールを最適化。
-  * **LOD (Level of Detail)**: 再帰深度に応じて幹のセグメント数（3〜5）を調整。
-  * **法線計算**: 頂点ごとに法線（Normal）を設定。`ofLight`による平行光源（SUNNY）および点光源（MOONLIGHT）の陰影計算に対応。
   * **縦方向分割 (Subdivision)**: 1つの枝を縦方向に4分割（5つの断面）して生成。ねじれ (Twist) / テーパリングを表現。
+  * **法線計算**: 頂点ごとに法線（Normal）を設定。`ofLight`による平行光源（SUNNY）および点光源（MOONLIGHT）の陰影計算に対応。
   * **カメラ制御**:
     * 木の推定全高に基づき、注視点（Target）と距離（Distance）を自動計算し補間移動。
     * `settings.json`より回転速度、追従感度の調整が可能。
@@ -236,8 +240,8 @@ C++およびopenFrameworksを用いた、フラクタル構造の動的生成お
 * **game**: 最大日数、スキルポイント付与間隔、コマンドごとの基礎増分値。
 
 ## **5\. 次のステップ (Roadmap)**
-* **コマンドのGUI化**: ーボード操作をofxButton等による画面上でのマウス操作へ完全移行。
-* **CGの改善**: 枝・幹同士のつなぎ目を滑らかにする。
+* **パフォーマンス**: 再帰深度が深い際のメッシュ再構築負荷。1フレームでの全更新を避ける「分割構築（Time-Slicing）」の導入を検討。  
+* **ビジュアル**: 枝の接続部のさらなる平滑化。
 * **UI改善**: 直感的な操作などインタラクションの強化。
 </file>
 
@@ -523,7 +527,7 @@ enum CommandType { CMD_WATER, CMD_FERTILIZER, CMD_KOTODAMA };
 enum BarState { BAR_IDLE, BAR_LEVEL_UP_FLASH, BAR_RESET_WAIT };
 enum ParticleType { P_WATER, P_FERTILIZER, P_KOTODAMA, P_RAIN_SPLASH, P_BLOOM };
 
-// --- データ構造定義 ---
+// --- f[^\˘č` ---
 struct AuraBeam {
     float x, z;
     float width;
@@ -545,6 +549,8 @@ struct UISettings {
     ofColor colElegant, colSturdy, colEldritch;
     float cooldownDuration;
     float statusTop, statusRight;
+    float btnClickOffset = 4.0f;
+    ofColor colShadow = ofColor(0, 0, 0, 150);
 };
 
 struct TreeSettings {
@@ -579,6 +585,42 @@ struct GameState {
     float barFlashTimer = 0.0f;
     float auraTimer = 0.0f;
     float levelUpBubbleTimer = 0.0f;
+    int lastCommandIndex = -1;
+};
+
+struct Particle2D {
+    glm::vec2 pos, vel;
+    ofColor color;
+    float size, life = 1.0f, decay;
+    ParticleType type;
+    float angle = 0.0f; // žěĚůvZp
+    float spiralRadius = 0.0f; // ůĚťÝĚźa
+
+    void update(float dt) {
+        if (type == P_KOTODAMA) {
+            // žěFůOšĚvZ
+            // źa $r = a + b\theta$ ÉîĂ­LŞč
+            angle += 5.0f * dt;
+            spiralRadius += 100.0f * dt;
+            pos.x = ofGetWidth() * 0.5f + cos(angle) * spiralRadius;
+            pos.y = ofGetHeight() * 0.5f + sin(angle) * spiralRadius;
+            size += 0.5f; // XÉĺŤ­
+        }
+        else {
+            pos += vel;
+        }
+        life -= decay;
+    }
+
+    void draw() {
+        // 1. wĘĚeiFŤüăj
+        ofSetColor(0, 0, 0, life * 100);
+        ofDrawCircle(pos, size * 1.2f);
+
+        // 2. {ĚiÁZŹÍÄŃoľ¤Ĺ§äj
+        ofSetColor(color, life * 255);
+        ofDrawCircle(pos, size);
+    }
 };
 </file>
 
@@ -591,31 +633,31 @@ struct GameState {
 #include "..\Ground.h"
 #include "../Particle.h"
 
-struct Particle2D {
-	glm::vec2 pos, vel;
-	ofColor color;
-	float size, life = 1.0, decay;
-	ParticleType type;
-
-	void update() {
-		pos += vel;
-		if (type == P_FERTILIZER) pos.x += sin(ofGetElapsedTimef() * 5.0) * 2.0;
-		life -= decay;
-	}
-
-	void draw() {
-		ofSetColor(color, life * 255);
-		if (type == P_RAIN_SPLASH) {
-			ofSetLineWidth(2);
-			ofNoFill();
-			ofDrawEllipse(pos, size * (1.0 - life) * 2.0, size * (1.0 - life));
-			ofFill();
-		}
-		else {
-			ofDrawCircle(pos, size * (life + 0.2));
-		}
-	}
-};
+//struct Particle2D {
+//	glm::vec2 pos, vel;
+//	ofColor color;
+//	float size, life = 1.0, decay;
+//	ParticleType type;
+//
+//	void update() {
+//		pos += vel;
+//		if (type == P_FERTILIZER) pos.x += sin(ofGetElapsedTimef() * 5.0) * 2.0;
+//		life -= decay;
+//	}
+//
+//	void draw() {
+//		ofSetColor(color, life * 255);
+//		if (type == P_RAIN_SPLASH) {
+//			ofSetLineWidth(2);
+//			ofNoFill();
+//			ofDrawEllipse(pos, size * (1.0 - life) * 2.0, size * (1.0 - life));
+//			ofFill();
+//		}
+//		else {
+//			ofDrawCircle(pos, size * (life + 0.2));
+//		}
+//	}
+//};
 
 class ofApp : public ofBaseApp{
 	public:
@@ -1232,8 +1274,9 @@ void ofApp::setup() {
 
 //--------------------------------------------------------------
 void ofApp::update() {
+    float dt = ofGetLastFrameTime();
     if (state.actionCooldown > 0) {
-        state.actionCooldown -= ofGetLastFrameTime();
+        state.actionCooldown -= dt;
         if (state.actionCooldown < 0) state.actionCooldown = 0;
     }
     // 終了判定
@@ -1257,9 +1300,9 @@ void ofApp::update() {
     visualDepthProgress = ofLerp(visualDepthProgress, myTree.getDepthProgress(), 0.1f);
 
     // パーティクル更新
-    for (auto& p : particles) p.update();
+    for (auto& p : particles) p.update(dt);
     ofRemove(particles, [](Particle& p) { return p.life <= 0; });
-    for (auto& p : particles2D) p.update();
+    for (auto& p : particles2D) p.update(dt);
     ofRemove(particles2D, [](Particle2D& p) { return p.life <= 0; });
     if (weather.state == RAINY && ofGetFrameNum() % 3 == 0) {
         spawn2DEffect(P_RAIN_SPLASH);
@@ -1297,37 +1340,12 @@ void ofApp::update() {
     if (state.levelUpBubbleTimer > 0) state.levelUpBubbleTimer -= ofGetLastFrameTime();
 }
 
-//--------------------------------------------------------------
-void ofApp::draw() {
-    ofBackground(weather.getBgFromConfig(config));
-
-    ofEnableDepthTest();
-    ofEnableLighting();
-    setupLighting();
-
-    cam.begin();
-    ground.draw();
-    myTree.draw();
-    for (auto& p : particles) p.draw();
-    cam.end();
-
-    light.disable();
-    ofDisableLighting();
-    ofDisableDepthTest();
-
-    for (auto& p : particles2D) p.draw();
-    weather.draw2D();
-
-    if (state.bViewMode) drawViewModeOverlay();
-    else drawHUD();
-
-    if (state.bShowDebug) drawDebugOverlay();
-}
 void ofApp::updateCamera() {
     if (state.bViewMode) return;
 
     float hFactor = config["camera"].value("height_factor", 3.5f);
     float treeH = myTree.getLen() * hFactor;
+    float lerpSpeed = config["camera"].value("lerp_speed", 0.05f);
     float targetDist, lookAtY;
 
     if (state.bGameEnded) {
@@ -1340,17 +1358,62 @@ void ofApp::updateCamera() {
         cam.lookAt(glm::vec3(0, lookAtY, 0));
     }
     else {
-        camAutoRotation += 0.2f;
-        targetDist = max(600.0f, treeH * 1.5f);
-        lookAtY = treeH * 0.4f;
+        float minDist = config["camera"].value("min_distance", 600.0f);
+        float targetDist = std::max(minDist, treeH * 1.5f);
+        float lookAtY = treeH * 0.4f;
 
+        camAutoRotation += config["camera"].value("rotation_speed", 0.2f);
         float rad = ofDegToRad(camAutoRotation);
-        glm::vec3 targetPos(sin(rad) * targetDist, lookAtY + 100, cos(rad) * targetDist);
 
-        cam.setTarget(glm::vec3(0, lookAtY, 0));
-        cam.setPosition(targetPos);
-        cam.lookAt(glm::vec3(0, lookAtY, 0));
+        glm::vec3 targetPos(sin(rad) * targetDist, lookAtY + 100, cos(rad) * targetDist);
+        glm::vec3 targetLookAt(0, lookAtY, 0);
+
+        // glm::mix (GLMのlerp) を使用してエラー回避 (修正点)
+        cam.setPosition(glm::mix(cam.getPosition(), targetPos, lerpSpeed));
+        cam.setTarget(glm::mix(cam.getTarget().getGlobalPosition(), targetLookAt, lerpSpeed));
+        //camAutoRotation += 0.2f;
+        //targetDist = max(600.0f, treeH * 1.5f);
+        //lookAtY = treeH * 0.4f;
+
+        //float rad = ofDegToRad(camAutoRotation);
+        //glm::vec3 targetPos(sin(rad) * targetDist, lookAtY + 100, cos(rad) * targetDist);
+
+        //cam.setTarget(glm::vec3(0, lookAtY, 0));
+        //cam.setPosition(targetPos);
+        //cam.lookAt(glm::vec3(0, lookAtY, 0));
     }
+}
+
+
+//--------------------------------------------------------------
+void ofApp::draw() {
+    ofBackground(weather.getBgFromConfig(config));
+
+    ofEnableDepthTest();
+    ofEnableLighting();
+    setupLighting();
+
+    cam.begin();
+    ground.draw();
+    drawAura();
+    myTree.draw();
+    for (auto& p : particles) p.draw();
+    cam.end();
+
+    light.disable();
+    ofDisableLighting();
+    ofDisableDepthTest();
+
+    ofEnableBlendMode(OF_BLENDMODE_ADD);
+    for (auto& p : particles2D) p.draw();
+    ofDisableBlendMode();
+
+    weather.draw2D();
+
+    if (state.bViewMode) drawViewModeOverlay();
+    else drawHUD();
+
+    if (state.bShowDebug) drawDebugOverlay();
 }
 
 void ofApp::spawnBloomParticles() {
@@ -1610,33 +1673,28 @@ void ofApp::drawBottomActionBar() {
     float mx = ofGetMouseX() / scale - (ofGetWidth() / 2 / scale - totalW / 2);
     float my = ofGetMouseY() / scale - (ofGetHeight() / scale - state.ui.btnBottomOffset - btnH);
 
-    for (int i = 0; i < numBtns; i++) {
+    for (int i = 0; i < 3; i++) {
         float bx = i * (btnW + margin);
-        bool isHovered = (mx >= bx && mx <= bx + btnW && my >= 0 && my <= btnH);
+        bool isHover = (mx >= bx && mx <= bx + btnW && my >= 0 && my <= btnH);
+        bool isPressed = isHover && ofGetMousePressed(); // Phase 2: 押し込み判定
 
-        // 色の決定
-        ofColor bCol;
-        if (state.actionCooldown > 0) bCol = state.ui.colLocked;
-        else if (isHovered) {
-            bCol = state.ui.colHover;
-            hoveredButtonIndex = i;
-        }
-        else bCol = state.ui.colIdle;
+        if (isHover) hoveredButtonIndex = i;
 
-        // ボタン本体
-        ofSetColor(bCol);
-        ofDrawRectRounded(bx, 0, btnW, btnH, 5);
+        // ボタンの沈み込み演出 (Phase 2)
+        float yOff = isPressed ? state.ui.btnClickOffset : 0;
 
-        // テキスト
+        ofSetColor(isPressed ? state.ui.colActive : (isHover ? state.ui.colHover : state.ui.colIdle));
+        if (state.actionCooldown > 0) ofSetColor(state.ui.colLocked);
+
+        ofDrawRectRounded(bx, yOff, btnW, btnH, 5);
+
         ofSetColor(state.ui.colText);
-        float tw = mainFont.stringWidth(labels[i]);
-        mainFont.drawString(labels[i], bx + (btnW - tw) / 2, btnH / 2 + 7);
+        mainFont.drawString(labels[i], bx + 20, btnH / 2 + 7 + yOff);
 
-        // クールタイムゲージ（ボタンの下側に細く表示）
-        if (state.actionCooldown > 0) {
+        // クールタイムゲージ
+        if (state.actionCooldown > 0 && i == state.lastCommandIndex) {
             ofSetColor(state.ui.colActive);
-            float progress = state.actionCooldown / state.ui.cooldownDuration;
-            ofDrawRectangle(bx, btnH - 4, btnW * progress, 4);
+            ofDrawRectangle(bx, btnH + yOff - 4, btnW * (state.actionCooldown / state.ui.cooldownDuration), 4);
         }
     }
     ofPopMatrix();
@@ -1813,35 +1871,30 @@ void ofApp::drawAura() {
     if (state.auraTimer <= 0) return;
 
     ofPushStyle();
-    ofEnableBlendMode(OF_BLENDMODE_ADD); // 加算合成で光を表現
+    ofEnableBlendMode(OF_BLENDMODE_ADD);
 
-    // 進化状態に応じた色の決定
-    ofColor auraCol = ofColor(255, 255, 200); // デフォルト
+    ofColor auraCol = ofColor(255, 255, 180); // デフォルト
     if (state.currentType == TYPE_ELEGANT) auraCol = state.ui.colElegant;
     else if (state.currentType == TYPE_STURDY) auraCol = state.ui.colSturdy;
     else if (state.currentType == TYPE_ELDRITCH) auraCol = state.ui.colEldritch;
 
     float progress = state.auraTimer / config["ui"]["aura"].value("duration", 1.5f);
-    float flicker = (0.7f + 0.3f * sin(ofGetElapsedTimef() * 20.0f)); // 激しい明滅
+    float flicker = 0.8f + 0.2f * sin(ofGetElapsedTimef() * 30.0f);
 
     for (auto& b : auraBeams) {
-        // 常に上昇し続けるアニメーション
-        float yOffset = fmod(ofGetElapsedTimef() * b.speed * 100.0f, 2000.0f);
-
+        float yAnim = fmod(ofGetElapsedTimef() * b.speed * 150.0f, 2000.0f);
         ofPushMatrix();
-        ofTranslate(b.x, -yOffset + 1000, b.z); // 下から上へ移動
+        ofTranslate(b.x, -yAnim + 800, b.z);
 
-        // 中心（明るい）
-        ofSetColor(255, 255, 255, 200 * progress * flicker);
-        ofDrawRectangle(-b.width * 0.1, 0, b.width * 0.2, b.height);
+        // 芯の部分
+        ofSetColor(255, 255, 255, 180 * progress * flicker);
+        ofDrawRectangle(-b.width * 0.1f, 0, b.width * 0.2f, b.height);
 
-        // 外側（タイプカラー）
-        ofSetColor(auraCol, 150 * progress * flicker);
-        ofDrawRectangle(-b.width * 0.5, 0, b.width, b.height);
-
+        // 外光部分
+        ofSetColor(auraCol, 120 * progress * flicker);
+        ofDrawRectangle(-b.width * 0.5f, 0, b.width, b.height);
         ofPopMatrix();
     }
-
     ofDisableBlendMode();
     ofPopStyle();
 }
@@ -1849,6 +1902,8 @@ void ofApp::drawAura() {
 void ofApp::executeCommand(CommandType type) {
     // クールタイム中、またはゲーム終了後は実行不可
     if (state.actionCooldown > 0 || state.bGameEnded || state.bViewMode) return;
+
+    state.lastCommandIndex = static_cast<int>(type);
 
     auto& g = config["game"];
 
@@ -1863,6 +1918,17 @@ void ofApp::executeCommand(CommandType type) {
         break;
     case CMD_KOTODAMA:
         myTree.kotodama(1.0);
+        for (int i = 0; i < 40; i++) {
+            Particle2D p;
+            p.type = P_KOTODAMA;
+            p.pos = { (float)ofGetWidth() * 0.5f, (float)ofGetHeight() * 0.5f };
+            p.color = ofColor(200, 160, 255);
+            p.size = 5.0f;
+            p.decay = ofRandom(0.01f, 0.02f);
+            p.angle = ofRandom(TWO_PI);
+            p.spiralRadius = 0.0f;
+            particles2D.push_back(p);
+        }
         spawn2DEffect(P_KOTODAMA);
         break;
     }
@@ -1962,8 +2028,18 @@ void ofApp::processCommand(int key) {
 void ofApp::upgradeGrowth() { 
     if (state.skillPoints > 0 && growthLevel < 5) { 
         growthLevel++; state.skillPoints--; 
-        state.auraTimer = config["ui"]["aura"].value("duration", 1.5f); // オーラタイマー始動
-        spawn2DEffect(P_BLOOM);
+        auraBeams.clear();
+        int count = config["ui"]["aura"].value("beam_count", 12);
+        for (int i = 0; i < count; i++) {
+            AuraBeam b;
+            b.x = ofRandom(-200, 200);
+            b.z = ofRandom(-200, 200);
+            b.width = ofRandom(10, 30);
+            b.speed = ofRandom(2, 5);
+            b.height = ofRandom(1000, 2000);
+            auraBeams.push_back(b);
+        }
+        state.auraTimer = config["ui"]["aura"].value("duration", 1.5f);
     } 
 }
 void ofApp::upgradeResist() { 

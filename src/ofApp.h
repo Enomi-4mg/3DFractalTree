@@ -6,31 +6,31 @@
 #include "..\Ground.h"
 #include "../Particle.h"
 
-struct Particle2D {
-	glm::vec2 pos, vel;
-	ofColor color;
-	float size, life = 1.0, decay;
-	ParticleType type;
-
-	void update() {
-		pos += vel;
-		if (type == P_FERTILIZER) pos.x += sin(ofGetElapsedTimef() * 5.0) * 2.0;
-		life -= decay;
-	}
-
-	void draw() {
-		ofSetColor(color, life * 255);
-		if (type == P_RAIN_SPLASH) {
-			ofSetLineWidth(2);
-			ofNoFill();
-			ofDrawEllipse(pos, size * (1.0 - life) * 2.0, size * (1.0 - life));
-			ofFill();
-		}
-		else {
-			ofDrawCircle(pos, size * (life + 0.2));
-		}
-	}
-};
+//struct Particle2D {
+//	glm::vec2 pos, vel;
+//	ofColor color;
+//	float size, life = 1.0, decay;
+//	ParticleType type;
+//
+//	void update() {
+//		pos += vel;
+//		if (type == P_FERTILIZER) pos.x += sin(ofGetElapsedTimef() * 5.0) * 2.0;
+//		life -= decay;
+//	}
+//
+//	void draw() {
+//		ofSetColor(color, life * 255);
+//		if (type == P_RAIN_SPLASH) {
+//			ofSetLineWidth(2);
+//			ofNoFill();
+//			ofDrawEllipse(pos, size * (1.0 - life) * 2.0, size * (1.0 - life));
+//			ofFill();
+//		}
+//		else {
+//			ofDrawCircle(pos, size * (life + 0.2));
+//		}
+//	}
+//};
 
 class ofApp : public ofBaseApp{
 	public:
@@ -100,7 +100,6 @@ class ofApp : public ofBaseApp{
 		void drawViewModeOverlay();
 		void drawDebugOverlay();
 		void drawDualParamBar(string label, float x, float y, float w, float currentRatio, float maxRatio, ofColor col);
-		// GUI
 		int hoveredButtonIndex = -1;
 
 		void processCommand(int key);
@@ -110,4 +109,5 @@ class ofApp : public ofBaseApp{
 		float camAutoRotation = 0;
 		float visualDepthProgress = 0;
 		int lastDepthLevel = 0;
+		ofColor auraColor;
 };

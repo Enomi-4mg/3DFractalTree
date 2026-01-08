@@ -82,8 +82,9 @@ void ofApp::setup() {
 
 //--------------------------------------------------------------
 void ofApp::update() {
+    float dt = ofGetLastFrameTime();
     if (state.actionCooldown > 0) {
-        state.actionCooldown -= ofGetLastFrameTime();
+        state.actionCooldown -= dt;
         if (state.actionCooldown < 0) state.actionCooldown = 0;
     }
     // 終了判定
@@ -107,9 +108,9 @@ void ofApp::update() {
     visualDepthProgress = ofLerp(visualDepthProgress, myTree.getDepthProgress(), 0.1f);
 
     // パーティクル更新
-    for (auto& p : particles) p.update();
+    for (auto& p : particles) p.update(dt);
     ofRemove(particles, [](Particle& p) { return p.life <= 0; });
-    for (auto& p : particles2D) p.update();
+    for (auto& p : particles2D) p.update(dt);
     ofRemove(particles2D, [](Particle2D& p) { return p.life <= 0; });
     if (weather.state == RAINY && ofGetFrameNum() % 3 == 0) {
         spawn2DEffect(P_RAIN_SPLASH);
@@ -147,37 +148,12 @@ void ofApp::update() {
     if (state.levelUpBubbleTimer > 0) state.levelUpBubbleTimer -= ofGetLastFrameTime();
 }
 
-//--------------------------------------------------------------
-void ofApp::draw() {
-    ofBackground(weather.getBgFromConfig(config));
-
-    ofEnableDepthTest();
-    ofEnableLighting();
-    setupLighting();
-
-    cam.begin();
-    ground.draw();
-    myTree.draw();
-    for (auto& p : particles) p.draw();
-    cam.end();
-
-    light.disable();
-    ofDisableLighting();
-    ofDisableDepthTest();
-
-    for (auto& p : particles2D) p.draw();
-    weather.draw2D();
-
-    if (state.bViewMode) drawViewModeOverlay();
-    else drawHUD();
-
-    if (state.bShowDebug) drawDebugOverlay();
-}
 void ofApp::updateCamera() {
     if (state.bViewMode) return;
 
     float hFactor = config["camera"].value("height_factor", 3.5f);
     float treeH = myTree.getLen() * hFactor;
+    float lerpSpeed = config["camera"].value("lerp_speed", 0.05f);
     float targetDist, lookAtY;
 
     if (state.bGameEnded) {
@@ -190,17 +166,62 @@ void ofApp::updateCamera() {
         cam.lookAt(glm::vec3(0, lookAtY, 0));
     }
     else {
-        camAutoRotation += 0.2f;
-        targetDist = max(600.0f, treeH * 1.5f);
-        lookAtY = treeH * 0.4f;
+        float minDist = config["camera"].value("min_distance", 600.0f);
+        float targetDist = std::max(minDist, treeH * 1.5f);
+        float lookAtY = treeH * 0.4f;
 
+        camAutoRotation += config["camera"].value("rotation_speed", 0.2f);
         float rad = ofDegToRad(camAutoRotation);
-        glm::vec3 targetPos(sin(rad) * targetDist, lookAtY + 100, cos(rad) * targetDist);
 
-        cam.setTarget(glm::vec3(0, lookAtY, 0));
-        cam.setPosition(targetPos);
-        cam.lookAt(glm::vec3(0, lookAtY, 0));
+        glm::vec3 targetPos(sin(rad) * targetDist, lookAtY + 100, cos(rad) * targetDist);
+        glm::vec3 targetLookAt(0, lookAtY, 0);
+
+        // glm::mix (GLMのlerp) を使用してエラー回避 (修正点)
+        cam.setPosition(glm::mix(cam.getPosition(), targetPos, lerpSpeed));
+        cam.setTarget(glm::mix(cam.getTarget().getGlobalPosition(), targetLookAt, lerpSpeed));
+        //camAutoRotation += 0.2f;
+        //targetDist = max(600.0f, treeH * 1.5f);
+        //lookAtY = treeH * 0.4f;
+
+        //float rad = ofDegToRad(camAutoRotation);
+        //glm::vec3 targetPos(sin(rad) * targetDist, lookAtY + 100, cos(rad) * targetDist);
+
+        //cam.setTarget(glm::vec3(0, lookAtY, 0));
+        //cam.setPosition(targetPos);
+        //cam.lookAt(glm::vec3(0, lookAtY, 0));
     }
+}
+
+
+//--------------------------------------------------------------
+void ofApp::draw() {
+    ofBackground(weather.getBgFromConfig(config));
+
+    ofEnableDepthTest();
+    ofEnableLighting();
+    setupLighting();
+
+    cam.begin();
+    ground.draw();
+    drawAura();
+    myTree.draw();
+    for (auto& p : particles) p.draw();
+    cam.end();
+
+    light.disable();
+    ofDisableLighting();
+    ofDisableDepthTest();
+
+    ofEnableBlendMode(OF_BLENDMODE_ADD);
+    for (auto& p : particles2D) p.draw();
+    ofDisableBlendMode();
+
+    weather.draw2D();
+
+    if (state.bViewMode) drawViewModeOverlay();
+    else drawHUD();
+
+    if (state.bShowDebug) drawDebugOverlay();
 }
 
 void ofApp::spawnBloomParticles() {
@@ -460,33 +481,28 @@ void ofApp::drawBottomActionBar() {
     float mx = ofGetMouseX() / scale - (ofGetWidth() / 2 / scale - totalW / 2);
     float my = ofGetMouseY() / scale - (ofGetHeight() / scale - state.ui.btnBottomOffset - btnH);
 
-    for (int i = 0; i < numBtns; i++) {
+    for (int i = 0; i < 3; i++) {
         float bx = i * (btnW + margin);
-        bool isHovered = (mx >= bx && mx <= bx + btnW && my >= 0 && my <= btnH);
+        bool isHover = (mx >= bx && mx <= bx + btnW && my >= 0 && my <= btnH);
+        bool isPressed = isHover && ofGetMousePressed(); // Phase 2: 押し込み判定
 
-        // 色の決定
-        ofColor bCol;
-        if (state.actionCooldown > 0) bCol = state.ui.colLocked;
-        else if (isHovered) {
-            bCol = state.ui.colHover;
-            hoveredButtonIndex = i;
-        }
-        else bCol = state.ui.colIdle;
+        if (isHover) hoveredButtonIndex = i;
 
-        // ボタン本体
-        ofSetColor(bCol);
-        ofDrawRectRounded(bx, 0, btnW, btnH, 5);
+        // ボタンの沈み込み演出 (Phase 2)
+        float yOff = isPressed ? state.ui.btnClickOffset : 0;
 
-        // テキスト
+        ofSetColor(isPressed ? state.ui.colActive : (isHover ? state.ui.colHover : state.ui.colIdle));
+        if (state.actionCooldown > 0) ofSetColor(state.ui.colLocked);
+
+        ofDrawRectRounded(bx, yOff, btnW, btnH, 5);
+
         ofSetColor(state.ui.colText);
-        float tw = mainFont.stringWidth(labels[i]);
-        mainFont.drawString(labels[i], bx + (btnW - tw) / 2, btnH / 2 + 7);
+        mainFont.drawString(labels[i], bx + 20, btnH / 2 + 7 + yOff);
 
-        // クールタイムゲージ（ボタンの下側に細く表示）
-        if (state.actionCooldown > 0) {
+        // クールタイムゲージ
+        if (state.actionCooldown > 0 && i == state.lastCommandIndex) {
             ofSetColor(state.ui.colActive);
-            float progress = state.actionCooldown / state.ui.cooldownDuration;
-            ofDrawRectangle(bx, btnH - 4, btnW * progress, 4);
+            ofDrawRectangle(bx, btnH + yOff - 4, btnW * (state.actionCooldown / state.ui.cooldownDuration), 4);
         }
     }
     ofPopMatrix();
@@ -663,35 +679,33 @@ void ofApp::drawAura() {
     if (state.auraTimer <= 0) return;
 
     ofPushStyle();
-    ofEnableBlendMode(OF_BLENDMODE_ADD); // 加算合成で光を表現
-
-    // 進化状態に応じた色の決定
-    ofColor auraCol = ofColor(255, 255, 200); // デフォルト
-    if (state.currentType == TYPE_ELEGANT) auraCol = state.ui.colElegant;
-    else if (state.currentType == TYPE_STURDY) auraCol = state.ui.colSturdy;
-    else if (state.currentType == TYPE_ELDRITCH) auraCol = state.ui.colEldritch;
+    ofEnableBlendMode(OF_BLENDMODE_ADD);
 
     float progress = state.auraTimer / config["ui"]["aura"].value("duration", 1.5f);
-    float flicker = (0.7f + 0.3f * sin(ofGetElapsedTimef() * 20.0f)); // 激しい明滅
+    float flicker = 0.8f + 0.2f * sin(ofGetElapsedTimef() * 30.0f);
 
     for (auto& b : auraBeams) {
-        // 常に上昇し続けるアニメーション
-        float yOffset = fmod(ofGetElapsedTimef() * b.speed * 100.0f, 2000.0f);
-
+        float yAnim = fmod(ofGetElapsedTimef() * b.speed * 150.0f, 2000.0f);
         ofPushMatrix();
-        ofTranslate(b.x, -yOffset + 1000, b.z); // 下から上へ移動
+        ofTranslate(b.x, -yAnim + 800, b.z);
 
-        // 中心（明るい）
-        ofSetColor(255, 255, 255, 200 * progress * flicker);
-        ofDrawRectangle(-b.width * 0.1, 0, b.width * 0.2, b.height);
+        // 90度回転させて2回描画することで十字にする
+        for (int i = 0; i < 2; i++) {
+            ofPushMatrix();
+            ofRotateYDeg(i * 90);
 
-        // 外側（タイプカラー）
-        ofSetColor(auraCol, 150 * progress * flicker);
-        ofDrawRectangle(-b.width * 0.5, 0, b.width, b.height);
+            // 芯（白）
+            ofSetColor(255, 255, 255, 180 * progress * flicker);
+            ofDrawRectangle(-b.width * 0.1f, 0, b.width * 0.2f, b.height);
 
+            // 外光（スキル別の色）
+            ofSetColor(auraColor, 120 * progress * flicker);
+            ofDrawRectangle(-b.width * 0.5f, 0, b.width, b.height);
+
+            ofPopMatrix();
+        }
         ofPopMatrix();
     }
-
     ofDisableBlendMode();
     ofPopStyle();
 }
@@ -699,6 +713,8 @@ void ofApp::drawAura() {
 void ofApp::executeCommand(CommandType type) {
     // クールタイム中、またはゲーム終了後は実行不可
     if (state.actionCooldown > 0 || state.bGameEnded || state.bViewMode) return;
+
+    state.lastCommandIndex = static_cast<int>(type);
 
     auto& g = config["game"];
 
@@ -713,6 +729,17 @@ void ofApp::executeCommand(CommandType type) {
         break;
     case CMD_KOTODAMA:
         myTree.kotodama(1.0);
+        for (int i = 0; i < 40; i++) {
+            Particle2D p;
+            p.type = P_KOTODAMA;
+            p.pos = { (float)ofGetWidth() * 0.5f, (float)ofGetHeight() * 0.5f };
+            p.color = ofColor(200, 160, 255);
+            p.size = 5.0f;
+            p.decay = ofRandom(0.01f, 0.02f);
+            p.angle = ofRandom(TWO_PI);
+            p.spiralRadius = 0.0f;
+            particles2D.push_back(p);
+        }
         spawn2DEffect(P_KOTODAMA);
         break;
     }
@@ -811,23 +838,60 @@ void ofApp::processCommand(int key) {
 // --- スキル処理 ---
 void ofApp::upgradeGrowth() { 
     if (state.skillPoints > 0 && growthLevel < 5) { 
-        growthLevel++; state.skillPoints--; 
-        state.auraTimer = config["ui"]["aura"].value("duration", 1.5f); // オーラタイマー始動
-        spawn2DEffect(P_BLOOM);
+        growthLevel++; state.skillPoints--;
+        auraColor = state.ui.colElegant;
+        state.auraTimer = config["ui"]["aura"].value("duration", 1.5f);
+        auraBeams.clear();
+        int count = config["ui"]["aura"].value("beam_count", 12);
+        for (int i = 0; i < count; i++) {
+            AuraBeam b;
+            b.x = ofRandom(-200, 200);
+            b.z = ofRandom(-200, 200);
+            b.width = ofRandom(10, 30);
+            b.speed = ofRandom(2, 5);
+            b.height = ofRandom(1000, 2000);
+            auraBeams.push_back(b);
+        }
+        state.auraTimer = config["ui"]["aura"].value("duration", 1.5f);
     } 
 }
 void ofApp::upgradeResist() { 
     if (state.skillPoints > 0 && chaosResistLevel < 5) { 
         chaosResistLevel++; state.skillPoints--; 
-        state.auraTimer = config["ui"]["aura"].value("duration", 1.5f); // オーラタイマー始動
-        spawn2DEffect(P_BLOOM);
+        auraColor = state.ui.colSturdy;
+        state.auraTimer = config["ui"]["aura"].value("duration", 1.5f);
+        auraColor = state.ui.colElegant;
+        auraBeams.clear();
+        int count = config["ui"]["aura"].value("beam_count", 12);
+        for (int i = 0; i < count; i++) {
+            AuraBeam b;
+            b.x = ofRandom(-200, 200);
+            b.z = ofRandom(-200, 200);
+            b.width = ofRandom(10, 30);
+            b.speed = ofRandom(2, 5);
+            b.height = ofRandom(1000, 2000);
+            auraBeams.push_back(b);
+        }
+        state.auraTimer = config["ui"]["aura"].value("duration", 1.5f);
     } 
 }
 void ofApp::upgradeCatalyst() { 
     if (state.skillPoints > 0 && bloomCatalystLevel < 5) { 
         bloomCatalystLevel++; state.skillPoints--; 
-        state.auraTimer = config["ui"]["aura"].value("duration", 1.5f); // オーラタイマー始動
-        spawn2DEffect(P_BLOOM);
+        auraColor = ofColor(255, 150, 200);
+        state.auraTimer = config["ui"]["aura"].value("duration", 1.5f);
+        auraBeams.clear();
+        int count = config["ui"]["aura"].value("beam_count", 12);
+        for (int i = 0; i < count; i++) {
+            AuraBeam b;
+            b.x = ofRandom(-200, 200);
+            b.z = ofRandom(-200, 200);
+            b.width = ofRandom(10, 30);
+            b.speed = ofRandom(2, 5);
+            b.height = ofRandom(1000, 2000);
+            auraBeams.push_back(b);
+        }
+        state.auraTimer = config["ui"]["aura"].value("duration", 1.5f);
     } 
 }
 

@@ -16,9 +16,9 @@ public:
         decay = ofRandom(0.01f, 0.03f); // 約1〜3秒で消滅
     }
 
-    void update() {
-        pos += vel;
-        life -= decay;
+    void update(float dt) {
+        pos += vel * (dt * 60.0f);
+        life -= decay * (dt * 60.0f);
     }
 
     void draw() {
