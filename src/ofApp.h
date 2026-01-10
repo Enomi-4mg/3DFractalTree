@@ -6,32 +6,6 @@
 #include "..\Ground.h"
 #include "../Particle.h"
 
-//struct Particle2D {
-//	glm::vec2 pos, vel;
-//	ofColor color;
-//	float size, life = 1.0, decay;
-//	ParticleType type;
-//
-//	void update() {
-//		pos += vel;
-//		if (type == P_FERTILIZER) pos.x += sin(ofGetElapsedTimef() * 5.0) * 2.0;
-//		life -= decay;
-//	}
-//
-//	void draw() {
-//		ofSetColor(color, life * 255);
-//		if (type == P_RAIN_SPLASH) {
-//			ofSetLineWidth(2);
-//			ofNoFill();
-//			ofDrawEllipse(pos, size * (1.0 - life) * 2.0, size * (1.0 - life));
-//			ofFill();
-//		}
-//		else {
-//			ofDrawCircle(pos, size * (life + 0.2));
-//		}
-//	}
-//};
-
 class ofApp : public ofBaseApp{
 	public:
 		// --- 標準イベント ---
@@ -40,6 +14,7 @@ class ofApp : public ofBaseApp{
 		void draw();
 		void keyPressed(int key);
 		void mousePressed(int x, int y, int button);
+		void resetGame();
 
 		void audioOut(ofSoundBuffer& buffer);
 		void loadPreset(int index);
@@ -130,7 +105,6 @@ class ofApp : public ofBaseApp{
 		void spawnBloomParticles();
 
 		// --- システム変数と設定 ---
-		float camAutoRotation = 0;
 		float visualDepthProgress = 0;
 		int lastDepthLevel = 0;
 		ofColor auraColor;

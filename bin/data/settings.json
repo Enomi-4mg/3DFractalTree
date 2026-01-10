@@ -10,29 +10,84 @@
         "base_angle": 25.0,
         "mutation_angle_max": 45.0,
         "joint_scale": 1.05,
+        "uneri_strength_max": 240.0,
+        "noise_strength_max": 80.0,
+        "thresholds": {
+            "undulation": 0.3,
+            "bloom_base": 0.4,
+            "noise": 0.7
+        },
+        "factors": {
+            "thick_angle_factor": 3.5
+        },
         "colors": {
             "trunk_hue_start": 20,
             "trunk_hue_end": 160,
-            "leaf": [60, 150, 60, 200],
-            "flower": [255, 180, 200],
-            "elegant": [180, 220, 255], 
-            "sturdy": [150, 255, 100],
-            "eldritch": [255, 50, 100],
-            "aura_growth": [180, 220, 255],
-            "aura_resist": [150, 255, 100],
-            "aura_catalyst": [255, 150, 200]
+            "leaf": [
+                60,
+                150,
+                60,
+                200
+            ],
+            "flower": [
+                255,
+                180,
+                200
+            ],
+            "elegant": [
+                180,
+                220,
+                255
+            ],
+            "sturdy": [
+                150,
+                255,
+                100
+            ],
+            "eldritch": [
+                255,
+                50,
+                100
+            ],
+            "aura_growth": [
+                180,
+                220,
+                255
+            ],
+            "aura_resist": [
+                150,
+                255,
+                100
+            ],
+            "aura_catalyst": [
+                255,
+                150,
+                200
+            ]
         }
     },
     "camera": {
-        "rotation_speed": 0.2,
-        "lerp_speed": 0.05,
-        "min_distance": 600.0,
-        "height_factor": 3.5
+        "rotation_speed": 0.25,
+        "lerp_speed": 0.04,
+        "min_distance": 550.0,
+        "height_factor": 3.2
     },
     "weather": {
-        "sunny_bg": [210, 230, 250],
-        "rainy_bg": [100, 110, 125],
-        "moonlight_bg": [20, 25, 45]
+        "sunny_bg": [
+            210,
+            230,
+            250
+        ],
+        "rainy_bg": [
+            100,
+            110,
+            125
+        ],
+        "moonlight_bg": [
+            20,
+            25,
+            45
+        ]
     },
     "game": {
         "max_days": 50,
@@ -41,6 +96,7 @@
         "fertilize_increment": 8.0,
         "evo_day_branch": 20,
         "evo_day_bloom": 40,
+        "bloom_threshold": 0.6,
         "skill_costs": {
             "growth": 1,
             "resist": 1,
@@ -60,11 +116,36 @@
             "bottom_offset": 60
         },
         "colors": {
-            "idle": [60, 60, 70, 200],
-            "hover": [100, 100, 130, 255],
-            "active": [180, 180, 220, 255],
-            "locked": [40, 40, 40, 150],
-            "text": [255, 255, 255, 255]
+            "idle": [
+                60,
+                60,
+                70,
+                200
+            ],
+            "hover": [
+                100,
+                100,
+                130,
+                255
+            ],
+            "active": [
+                180,
+                180,
+                220,
+                255
+            ],
+            "locked": [
+                40,
+                40,
+                40,
+                150
+            ],
+            "text": [
+                255,
+                255,
+                255,
+                255
+            ]
         },
         "cooldown_time": 1.0,
         "status_pos": {
@@ -102,72 +183,159 @@
         {
             "name": "0. Default (原初の樹)",
             "weather": "SUNNY",
-            "evo_type": 0, "flower_type": 0,
-            "aura_color": [255, 255, 255],
+            "evo_type": 0,
+            "flower_type": 0,
+            "aura_color": [
+                255,
+                255,
+                255
+            ],
             "tree": {
-                "max_depth": 6, "target_len": 120.0, "target_thick": 10.0, "target_mutation": 0.0,
-                "base_angle": 25.0, "branch_length_ratio": 0.75, "trunk_hue_start": 20, "twist_factor": 0.0
+                "max_depth": 6,
+                "target_len": 120.0,
+                "target_thick": 10.0,
+                "target_mutation": 0.0,
+                "base_angle": 25.0,
+                "branch_length_ratio": 0.75,
+                "trunk_hue_start": 20,
+                "twist_factor": 0.0
             }
         },
         {
             "name": "1. Standard (生命の樹)",
             "weather": "SUNNY",
-            "evo_type": 0, "flower_type": 2,
-            "aura_color": [180, 220, 255],
+            "evo_type": 0,
+            "flower_type": 2,
+            "aura_color": [
+                180,
+                220,
+                255
+            ],
             "tree": {
-                "max_depth": 6, "target_len": 150.0, "target_thick": 12.0, "target_mutation": 0.2,
-                "base_angle": 25.0, "branch_length_ratio": 0.75, "trunk_hue_start": 20, "twist_factor": 15.0
+                "max_depth": 6,
+                "target_len": 150.0,
+                "target_thick": 12.0,
+                "target_mutation": 0.65,
+                "base_angle": 25.0,
+                "branch_length_ratio": 0.75,
+                "trunk_hue_start": 20,
+                "twist_factor": 20.0
             }
         },
         {
             "name": "2. Sacred (聖なる光)",
             "weather": "MOONLIGHT",
-            "evo_type": 1, "flower_type": 1,
-            "aura_color": [255, 255, 200],
+            "evo_type": 1,
+            "flower_type": 1,
+            "aura_color": [
+                255,
+                255,
+                200
+            ],
             "tree": {
-                "max_depth": 7, "target_len": 240.0, "target_thick": 8.0, "target_mutation": 0.1,
-                "base_angle": 15.0, "branch_length_ratio": 0.85, "trunk_hue_start": 40, "twist_factor": 5.0,
-                "leaf_color": [255, 255, 240]
+                "max_depth": 7,
+                "target_len": 240.0,
+                "target_thick": 8.0,
+                "target_mutation": 0.1,
+                "base_angle": 15.0,
+                "branch_length_ratio": 0.85,
+                "trunk_hue_start": 40,
+                "twist_factor": 5.0,
+                "leaf_color": [
+                    255,
+                    255,
+                    240
+                ]
             }
         },
         {
             "name": "3. Ancient (古の巨木)",
             "weather": "RAINY",
-            "evo_type": 2, "flower_type": 2,
-            "aura_color": [150, 255, 100],
+            "evo_type": 2,
+            "flower_type": 2,
+            "aura_color": [
+                150,
+                255,
+                100
+            ],
             "tree": {
-                "max_depth": 5, "target_len": 140.0, "target_thick": 35.0, "target_mutation": 0.05,
-                "base_angle": 38.0, "branch_thick_ratio": 0.88, "trunk_hue_start": 80, "twist_factor": 45.0
+                "max_depth": 5,
+                "target_len": 140.0,
+                "target_thick": 35.0,
+                "target_mutation": 0.45,
+                "base_angle": 38.0,
+                "branch_thick_ratio": 0.88,
+                "trunk_hue_start": 80,
+                "twist_factor": 50.0
             }
         },
         {
             "name": "4. Chaos (混沌の変異)",
             "weather": "MOONLIGHT",
-            "evo_type": 3, "flower_type": 3,
-            "aura_color": [255, 50, 100],
+            "evo_type": 3,
+            "flower_type": 3,
+            "aura_color": [
+                255,
+                50,
+                100
+            ],
             "tree": {
-                "max_depth": 6, "target_len": 200.0, "target_thick": 12.0, "target_mutation": 0.9,
-                "base_angle": 50.0, "trunk_hue_start": 200, "twist_factor": 160.0
+                "max_depth": 6,
+                "target_len": 200.0,
+                "target_thick": 12.0,
+                "target_mutation": 0.95,
+                "base_angle": 50.0,
+                "trunk_hue_start": 200,
+                "twist_factor": 120.0
             }
         },
         {
             "name": "5. Cherry (薄紅の桜)",
             "weather": "SUNNY",
-            "evo_type": 0, "flower_type": 2,
-            "aura_color": [255, 200, 230],
+            "evo_type": 0,
+            "flower_type": 2,
+            "aura_color": [
+                255,
+                200,
+                230
+            ],
             "tree": {
-                "max_depth": 6, "target_len": 130.0, "target_thick": 10.0, "target_mutation": 0.1,
-                "base_angle": 28.0, "trunk_hue_start": 0, "leaf_color": [255, 180, 200]
+                "max_depth": 6,
+                "target_len": 130.0,
+                "target_thick": 10.0,
+                "target_mutation": 0.1,
+                "base_angle": 28.0,
+                "trunk_hue_start": 0,
+                "leaf_color": [
+                    255,
+                    180,
+                    200
+                ]
             }
         },
         {
             "name": "6. Crystalline (氷晶の構造)",
             "weather": "RAINY",
-            "evo_type": 1, "flower_type": 1,
-            "aura_color": [100, 200, 255],
+            "evo_type": 1,
+            "flower_type": 1,
+            "aura_color": [
+                100,
+                200,
+                255
+            ],
             "tree": {
-                "max_depth": 6, "target_len": 180.0, "target_thick": 14.0, "target_mutation": 0.4,
-                "base_angle": 20.0, "trunk_hue_start": 180, "twist_factor": 45.0, "leaf_color": [200, 230, 255]
+                "max_depth": 6,
+                "target_len": 180.0,
+                "target_thick": 14.0,
+                "target_mutation": 0.55,
+                "base_angle": 20.0,
+                "trunk_hue_start": 180,
+                "twist_factor": 45.0,
+                "leaf_color": [
+                    200,
+                    230,
+                    255
+                ]
             }
         }
     ],
@@ -177,8 +345,8 @@
         "kotodama": {
             "particle_count": 15,
             "spiral_speed": 8.0,
-            "min_radius_ratio": 0.4,
-            "max_radius_ratio": 0.8
+            "min_radius_ratio": 80.0,
+            "max_radius_ratio": 600.0
         },
         "aura": {
             "duration": 1.8,

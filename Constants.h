@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 #include "ofMain.h"
 
 enum GrowthType { TYPE_DEFAULT, TYPE_ELEGANT, TYPE_STURDY, TYPE_ELDRITCH };
@@ -6,8 +6,34 @@ enum FlowerType { FLOWER_NONE, FLOWER_CRYSTAL, FLOWER_PETAL, FLOWER_SPIRIT };
 enum CommandType { CMD_WATER, CMD_FERTILIZER, CMD_KOTODAMA };
 enum BarState { BAR_IDLE, BAR_LEVEL_UP_FLASH, BAR_RESET_WAIT };
 enum ParticleType { P_WATER, P_FERTILIZER, P_KOTODAMA, P_RAIN_SPLASH, P_BLOOM };
+enum WeatherState { SUNNY, RAINY, MOONLIGHT };
 
-// --- ƒf[ƒ^\‘¢’è‹` ---
+// --- å€‹åˆ¥ãƒ¬ãƒ™ãƒ«ã‚¢ãƒƒãƒ—æ¼”å‡ºç”¨ ---
+struct LevelUpEvent {
+    string label;
+    float alpha = 1.0f;
+    glm::vec2 pos;    // ç™ºç”Ÿã—ãŸãƒãƒ¼ã®åº§æ¨™
+    float timer = 1.5f; // è¡¨ç¤ºæ™‚é–“ï¼ˆç§’ï¼‰
+};
+
+// --- ãƒ‡ãƒ¼ã‚¿æ§‹é€ å®šç¾© ---
+struct TreeSettings {
+    int maxDepth;
+    float expBase, expPower;
+    float lenScale, thickScale;
+    float branchLenRatio, branchThickRatio;
+    float baseAngle, mutationAngleMax;
+    float trunkHueStart, trunkHueEnd;
+    float twistFactor = 0.0f;
+
+    // --- è¿½åŠ ï¼šèª­ã¿è¾¼ã¿å¼·åŒ–ãƒ‘ãƒ©ãƒ¡ãƒ¼ã‚¿ ---
+    float uneriStrengthMax;   // å±¤ã®å›è»¢ï¼ˆã†ã­ã‚Šï¼‰ã®æœ€å¤§å¼·åº¦
+    float noiseStrengthMax;   // é ‚ç‚¹ãƒã‚¤ã‚ºã®æœ€å¤§å¼·åº¦
+    float bloomThreshold;     // é–‹èŠ±ã«å¿…è¦ãªå¤‰ç•°åº¦ã®åŸºæœ¬ã—ãã„å€¤
+
+    ofColor leafColor, flowerColor;
+};
+
 struct AuraBeam {
     float x, z;
     float width;
@@ -39,35 +65,24 @@ struct AudioTrack {
 };
 
 struct AudioState {
-    float volume = 0.2f;      // ƒ}ƒXƒ^[‰¹—Ê
-    float bgmRatio = 0.7f;      // BGM”ä—¦
-    float seRatio = 1.0f;       // SE”ä—¦
+    float volume = 0.2f;      // ãƒã‚¹ã‚¿ãƒ¼éŸ³é‡
+    float bgmRatio = 0.7f;      // BGMæ¯”ç‡
+    float seRatio = 1.0f;       // SEæ¯”ç‡
     float phase = 0.0f;
     float phaseStep = 0.0f;
     float targetFreq = 440.0f;
     float currentFreq = 440.0f;
-    float amplitude = 0.0f;   // Œ»İ‚Ì‰¹—ÊiƒgƒŠƒK[‚Åã¸‚µA©“®Œ¸Š‚·‚éj
-    float noiseMix = 0.0f;    // ¬“×“x‚É‰‚¶‚½ƒmƒCƒY¬“ü—¦
-    map<string, AudioTrack> bgmTracks; // ŠeBGM‚Ìó‘Ô‚ğ•Û
-    float fadeSpeed = 1.0f;            // ƒtƒF[ƒh‚Ì‘¬‚³
+    float amplitude = 0.0f;   // ç¾åœ¨ã®éŸ³é‡ï¼ˆãƒˆãƒªã‚¬ãƒ¼ã§ä¸Šæ˜‡ã—ã€è‡ªå‹•æ¸›è¡°ã™ã‚‹ï¼‰
+    float noiseMix = 0.0f;    // æ··æ²Œåº¦ã«å¿œã˜ãŸãƒã‚¤ã‚ºæ··å…¥ç‡
+    map<string, AudioTrack> bgmTracks; // å„BGMã®çŠ¶æ…‹ã‚’ä¿æŒ
+    float fadeSpeed = 1.0f;            // ãƒ•ã‚§ãƒ¼ãƒ‰ã®é€Ÿã•
 };
 
 struct SigilRing {
     float radius;
     float rotation;
     float speed;
-    int resolution; // 3 = OŠpŒ`, 6 = ˜ZŠpŒ`‚È‚Ç
-};
-
-struct TreeSettings {
-    int maxDepth;
-    float expBase, expPower;
-    float lenScale, thickScale;
-    float branchLenRatio, branchThickRatio;
-    float baseAngle, mutationAngleMax;
-    float trunkHueStart, trunkHueEnd;
-    float twistFactor = 0.0f;
-    ofColor leafColor, flowerColor;
+    int resolution; // 3 = ä¸‰è§’å½¢, 6 = å…­è§’å½¢ãªã©
 };
 
 struct GameState {
@@ -84,12 +99,20 @@ struct GameState {
     FlowerType currentFlowerType = FLOWER_NONE;
     int resilienceLevel = 0;
     float actionCooldown = 0.0f;
+    float camAutoRotation = 0;
 
     bool bCinematicMode = false;
     float flashAlpha = 0.0f;
     int currentPresetIndex = 0;
 
     UISettings ui;
+
+    int waterCount = 0;      // Elegantç”¨ã‚«ã‚¦ãƒ³ã‚¿ãƒ¼
+    int fertilizerCount = 0; // Sturdyç”¨ã‚«ã‚¦ãƒ³ã‚¿ãƒ¼
+    int kotodamaCount = 0;   // Eldritchç”¨ã‚«ã‚¦ãƒ³ã‚¿ãƒ¼
+
+    // å€‹åˆ¥ãƒ¬ãƒ™ãƒ«ã‚¢ãƒƒãƒ—æ¼”å‡ºã®ãƒªã‚¹ãƒˆ
+    vector<LevelUpEvent> levelUpPopups;
 
     EvolutionFlags evo;
     BarState barState = BAR_IDLE;
@@ -112,21 +135,21 @@ struct Particle2D {
     float size, life = 1.0f, decay;
     ParticleType type;
     float angle = 0.0f;
-    float spiralRadius = 0.0f; // —†ù‚Ì‰Šú”¼Œa
+    float spiralRadius = 0.0f; // èºæ—‹ã®åˆæœŸåŠå¾„
 
     void update(float dt) {
         if (type == P_KOTODAMA) {
-            // ‹z‚¢‚Ü‚ê‚é—†ùƒƒWƒbƒN
+            // å¸ã„è¾¼ã¾ã‚Œã‚‹èºæ—‹ãƒ­ã‚¸ãƒƒã‚¯
             angle += 8.0f * dt;
-            // õ–½(life)‚ª 1.0 -> 0.0 ‚É‚È‚é‚É‚Â‚ê‚Ä”¼Œa‚ğk¬
+            // å¯¿å‘½(life)ãŒ 1.0 -> 0.0 ã«ãªã‚‹ã«ã¤ã‚Œã¦åŠå¾„ã‚’ç¸®å°
             float currentR = spiralRadius * life;
-            pos.x = ofGetWidth() * 0.5f + cos(angle) * currentR;
-            pos.y = ofGetHeight() * 0.5f + sin(angle) * currentR;
-            // ƒTƒCƒYFÅ‰‚Í‘å‚«‚­A™X‚É¬‚³‚­ (25 -> 2)
+            pos.x = ofGetWidth() * 0.5f + cos(angle) * currentR - vel.x;
+            pos.y = ofGetHeight() * 0.5f + sin(angle) * currentR - vel.x;
+            // ã‚µã‚¤ã‚ºï¼šæœ€åˆã¯å¤§ããã€å¾ã€…ã«å°ã•ã (25 -> 2)
             size = ofMap(life, 1.0f, 0.0f, 25.0f, 2.0f, true);
         }
         else if (type == P_RAIN_SPLASH) {
-            // ”g–äFˆÊ’uŒÅ’èAõ–½‚Ì‚İŒ¸Š
+            // æ³¢ç´‹ï¼šä½ç½®å›ºå®šã€å¯¿å‘½ã®ã¿æ¸›è¡°
         }
         else {
             pos += vel * (dt * 60.0f);
@@ -134,9 +157,9 @@ struct Particle2D {
         life -= decay * (dt * 60.0f);
     }
 
-    void draw() {
+    void draw(bool shadowPass, WeatherState ws) {
         if (type == P_RAIN_SPLASH) {
-            // •œŠˆF‰J‚Ì”g–äiL‚ª‚é‘È‰~j
+            // å¾©æ´»ï¼šé›¨ã®æ³¢ç´‹ï¼ˆåºƒãŒã‚‹æ¥•å††ï¼‰
             ofPushStyle();
             ofNoFill();
             ofSetLineWidth(2);
@@ -147,11 +170,26 @@ struct Particle2D {
             ofPopStyle();
         }
         else {
-            // ’Êí‚Ì‰ÁZ‡¬—p‚ÌŒõ‚é‹Ê
-            ofSetColor(0, 0, 0, life * 100); // ‹”F«—p‰e
-            ofDrawCircle(pos, size * 1.2f);
-            ofSetColor(color, life * 255);
-            ofDrawCircle(pos, size);
+            if (shadowPass) {
+                ofColor shadowCol;
+                switch (type) {
+                case P_WATER:     shadowCol = ofColor(15, 40, 85); break;
+                case P_FERTILIZER: shadowCol = ofColor(35, 55, 20); break;
+                case P_KOTODAMA:   shadowCol = ofColor(65, 25, 80); break;
+                case P_BLOOM:      shadowCol = ofColor(85, 30, 45); break;
+                default:           shadowCol = ofColor(30, 30, 40); break;
+                }
+                float targetAlpha = 160.0f;
+                if (ws == SUNNY) targetAlpha = 210.0f;
+                else targetAlpha = 110.0f;
+
+                ofSetColor(shadowCol, life * targetAlpha);
+                ofDrawCircle(pos, size * 1.1f);
+            }
+            else {
+                ofSetColor(color, life * 255);
+                ofDrawCircle(pos, size);
+            }
         }
     }
 };

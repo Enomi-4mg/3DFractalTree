@@ -57,6 +57,7 @@ README.md
 src/main.cpp
 src/ofApp.cpp
 src/ofApp.h
+src/Tree.h
 Tree.cpp
 Tree.h
 Weather.h
@@ -64,6 +65,10 @@ Weather.h
 
 <files>
 This section contains the contents of the repository's files.
+
+<file path="src/Tree.h">
+
+</file>
 
 <file path="addons.make">
 ofxGui
@@ -167,8 +172,7 @@ public:
 <file path="Weather.h">
 #pragma once
 #include "ofMain.h"
-
-enum WeatherState { SUNNY, RAINY, MOONLIGHT };
+#include "..\Constants.h"
 
 class Weather {
     // 2Dの雨線を管理する構造体
@@ -451,74 +455,31 @@ C++およびopenFrameworks v0.12.1を用いた、フラクタル構造の動的�
         "base_angle": 25.0,
         "mutation_angle_max": 45.0,
         "joint_scale": 1.05,
+        "uneri_strength_max": 240.0,
+        "noise_strength_max": 80.0,
         "colors": {
             "trunk_hue_start": 20,
             "trunk_hue_end": 160,
-            "leaf": [
-                60,
-                150,
-                60,
-                200
-            ],
-            "flower": [
-                255,
-                180,
-                200
-            ],
-            "elegant": [
-                180,
-                220,
-                255
-            ],
-            "sturdy": [
-                150,
-                255,
-                100
-            ],
-            "eldritch": [
-                255,
-                50,
-                100
-            ],
-            "aura_growth": [
-                180,
-                220,
-                255
-            ],
-            "aura_resist": [
-                150,
-                255,
-                100
-            ],
-            "aura_catalyst": [
-                255,
-                150,
-                200
-            ]
+            "leaf": [60, 150, 60, 200],
+            "flower": [255, 180, 200],
+            "elegant": [180, 220, 255], 
+            "sturdy": [150, 255, 100],
+            "eldritch": [255, 50, 100],
+            "aura_growth": [180, 220, 255],
+            "aura_resist": [150, 255, 100],
+            "aura_catalyst": [255, 150, 200]
         }
     },
     "camera": {
-        "rotation_speed": 0.2,
-        "lerp_speed": 0.05,
-        "min_distance": 600.0,
-        "height_factor": 3.5
+        "rotation_speed": 0.25,
+        "lerp_speed": 0.04,
+        "min_distance": 550.0,
+        "height_factor": 3.2
     },
     "weather": {
-        "sunny_bg": [
-            210,
-            230,
-            250
-        ],
-        "rainy_bg": [
-            100,
-            110,
-            125
-        ],
-        "moonlight_bg": [
-            20,
-            25,
-            45
-        ]
+        "sunny_bg": [210, 230, 250],
+        "rainy_bg": [100, 110, 125],
+        "moonlight_bg": [20, 25, 45]
     },
     "game": {
         "max_days": 50,
@@ -527,6 +488,7 @@ C++およびopenFrameworks v0.12.1を用いた、フラクタル構造の動的�
         "fertilize_increment": 8.0,
         "evo_day_branch": 20,
         "evo_day_bloom": 40,
+        "bloom_threshold": 0.6,
         "skill_costs": {
             "growth": 1,
             "resist": 1,
@@ -546,36 +508,11 @@ C++およびopenFrameworks v0.12.1を用いた、フラクタル構造の動的�
             "bottom_offset": 60
         },
         "colors": {
-            "idle": [
-                60,
-                60,
-                70,
-                200
-            ],
-            "hover": [
-                100,
-                100,
-                130,
-                255
-            ],
-            "active": [
-                180,
-                180,
-                220,
-                255
-            ],
-            "locked": [
-                40,
-                40,
-                40,
-                150
-            ],
-            "text": [
-                255,
-                255,
-                255,
-                255
-            ]
+            "idle": [60, 60, 70, 200],
+            "hover": [100, 100, 130, 255],
+            "active": [180, 180, 220, 255],
+            "locked": [40, 40, 40, 150],
+            "text": [255, 255, 255, 255]
         },
         "cooldown_time": 1.0,
         "status_pos": {
@@ -610,102 +547,86 @@ C++およびopenFrameworks v0.12.1を用いた、フラクタル構造の動的�
         }
     },
     "presets": [
-    {
-        "name": "0. Default (原初の樹)",
-        "weather": "SUNNY",
-        "evo_type": 0, "flower_type": 0,
-        "aura_color": [255, 255, 255],
-        "tree": {
-            "max_depth": 6,
-            "target_len": 120.0, "target_thick": 10.0, "target_mutation": 0.0,
-            "base_angle": 25.0, "branch_length_ratio": 0.75,
-            "trunk_hue_start": 20, "twist_factor": 0.0
+        {
+            "name": "0. Default (原初の樹)",
+            "weather": "SUNNY",
+            "evo_type": 0, "flower_type": 0,
+            "aura_color": [255, 255, 255],
+            "tree": {
+                "max_depth": 6, "target_len": 120.0, "target_thick": 10.0, "target_mutation": 0.0,
+                "base_angle": 25.0, "branch_length_ratio": 0.75, "trunk_hue_start": 20, "twist_factor": 0.0
+            }
+        },
+        {
+            "name": "1. Standard (生命の樹)",
+            "weather": "SUNNY",
+            "evo_type": 0, "flower_type": 2,
+            "aura_color": [180, 220, 255],
+            "tree": {
+                "max_depth": 6, "target_len": 150.0, "target_thick": 12.0, "target_mutation": 0.65,
+                "base_angle": 25.0, "branch_length_ratio": 0.75, "trunk_hue_start": 20, "twist_factor": 20.0
+            }
+        },
+        {
+            "name": "2. Sacred (聖なる光)",
+            "weather": "MOONLIGHT",
+            "evo_type": 1, "flower_type": 1,
+            "aura_color": [255, 255, 200],
+            "tree": {
+                "max_depth": 7, "target_len": 240.0, "target_thick": 8.0, "target_mutation": 0.1,
+                "base_angle": 15.0, "branch_length_ratio": 0.85, "trunk_hue_start": 40, "twist_factor": 5.0,
+                "leaf_color": [255, 255, 240]
+            }
+        },
+        {
+            "name": "3. Ancient (古の巨木)",
+            "weather": "RAINY",
+            "evo_type": 2, "flower_type": 2,
+            "aura_color": [150, 255, 100],
+            "tree": {
+                "max_depth": 5, "target_len": 140.0, "target_thick": 35.0, "target_mutation": 0.45,
+                "base_angle": 38.0, "branch_thick_ratio": 0.88, "trunk_hue_start": 80, "twist_factor": 50.0
+            }
+        },
+        {
+            "name": "4. Chaos (混沌の変異)",
+            "weather": "MOONLIGHT",
+            "evo_type": 3, "flower_type": 3,
+            "aura_color": [255, 50, 100],
+            "tree": {
+                "max_depth": 6, "target_len": 200.0, "target_thick": 12.0, "target_mutation": 0.95,
+                "base_angle": 50.0, "trunk_hue_start": 200, "twist_factor": 120.0
+            }
+        },
+        {
+            "name": "5. Cherry (薄紅の桜)",
+            "weather": "SUNNY",
+            "evo_type": 0, "flower_type": 2,
+            "aura_color": [255, 200, 230],
+            "tree": {
+                "max_depth": 6, "target_len": 130.0, "target_thick": 10.0, "target_mutation": 0.1,
+                "base_angle": 28.0, "trunk_hue_start": 0, "leaf_color": [255, 180, 200]
+            }
+        },
+        {
+            "name": "6. Crystalline (氷晶の構造)",
+            "weather": "RAINY",
+            "evo_type": 1, "flower_type": 1,
+            "aura_color": [100, 200, 255],
+            "tree": {
+                "max_depth": 6, "target_len": 180.0, "target_thick": 14.0, "target_mutation": 0.55,
+                "base_angle": 20.0, "trunk_hue_start": 180, "twist_factor": 45.0, "leaf_color": [200, 230, 255]
+            }
         }
-    },
-    {
-        "name": "1. Standard (生命の樹)",
-        "weather": "SUNNY",
-        "evo_type": 0, "flower_type": 2, // DEFAULT + PETAL
-        "aura_color": [180, 220, 255],
-        "tree": {
-            "max_depth": 6,
-            "target_len": 150.0, "target_thick": 12.0, "target_mutation": 0.2,
-            "base_angle": 25.0, "branch_length_ratio": 0.75,
-            "trunk_hue_start": 20, "twist_factor": 15.0
-        }
-    },
-    {
-        "name": "2. Sacred (聖なる光)",
-        "weather": "MOONLIGHT",
-        "evo_type": 1, "flower_type": 1, // ELEGANT + CRYSTAL
-        "aura_color": [255, 255, 200],
-        "tree": {
-            "max_depth": 7,
-            "target_len": 240.0, "target_thick": 8.0, "target_mutation": 0.1,
-            "base_angle": 15.0, "branch_length_ratio": 0.85,
-            "trunk_hue_start": 40, "twist_factor": 5.0,
-            "leaf_color": [255, 255, 240]
-        }
-    },
-    {
-        "name": "3. Ancient (古の巨木)",
-        "weather": "RAINY",
-        "evo_type": 2, "flower_type": 2, // STURDY + PETAL
-        "aura_color": [150, 255, 100],
-        "tree": {
-            "max_depth": 5,
-            "target_len": 140.0, "target_thick": 35.0, "target_mutation": 0.05,
-            "base_angle": 38.0, "branch_thick_ratio": 0.88,
-            "trunk_hue_start": 80, "twist_factor": 45.0
-        }
-    },
-    {
-        "name": "4. Chaos (混沌の変異)",
-        "weather": "MOONLIGHT",
-        "evo_type": 3, "flower_type": 3, // ELDRITCH + SPIRIT
-        "aura_color": [255, 50, 100],
-        "tree": {
-            "max_depth": 6,
-            "target_len": 200.0, "target_thick": 15.0, "target_mutation": 0.9,
-            "base_angle": 55.0, "branch_length_ratio": 0.65,
-            "trunk_hue_start": 200, "twist_factor": 180.0
-        }
-    },
-    {
-        "name": "5. Cherry (薄紅の桜)",
-        "weather": "SUNNY",
-        "evo_type": 0, "flower_type": 2, // DEFAULT + PETAL
-        "aura_color": [255, 200, 230],
-        "tree": {
-            "max_depth": 7,
-            "target_len": 130.0, "target_thick": 10.0, "target_mutation": 0.1,
-            "base_angle": 28.0, "branch_length_ratio": 0.7,
-            "trunk_hue_start": 0, "twist_factor": 10.0,
-            "leaf_color": [255, 180, 200]
-        }
-    },
-    {
-        "name": "6. Crystalline (氷晶の構造)",
-        "weather": "RAINY",
-        "evo_type": 1, "flower_type": 1, // ELEGANT + CRYSTAL
-        "aura_color": [100, 200, 255],
-        "tree": {
-            "max_depth": 6,
-            "target_len": 180.0, "target_thick": 14.0, "target_mutation": 0.4,
-            "base_angle": 20.0, "branch_length_ratio": 0.8,
-            "trunk_hue_start": 180, "twist_factor": 45.0,
-            "leaf_color": [200, 230, 255]
-        }
-    }
-],
+    ],
     "effects": {
         "aura_layers": 4,
         "sigil_rotation_speed": 45.0,
         "kotodama": {
             "particle_count": 15,
             "spiral_speed": 8.0,
-            "min_radius_ratio": 0.4,
-            "max_radius_ratio": 0.8
+            "min_radius_ratio": 80.0,
+            "max_radius_ratio": 600.0
         },
         "aura": {
             "duration": 1.8,
@@ -725,8 +646,26 @@ enum FlowerType { FLOWER_NONE, FLOWER_CRYSTAL, FLOWER_PETAL, FLOWER_SPIRIT };
 enum CommandType { CMD_WATER, CMD_FERTILIZER, CMD_KOTODAMA };
 enum BarState { BAR_IDLE, BAR_LEVEL_UP_FLASH, BAR_RESET_WAIT };
 enum ParticleType { P_WATER, P_FERTILIZER, P_KOTODAMA, P_RAIN_SPLASH, P_BLOOM };
+enum WeatherState { SUNNY, RAINY, MOONLIGHT };
 
 // --- データ構造定義 ---
+struct TreeSettings {
+    int maxDepth;
+    float expBase, expPower;
+    float lenScale, thickScale;
+    float branchLenRatio, branchThickRatio;
+    float baseAngle, mutationAngleMax;
+    float trunkHueStart, trunkHueEnd;
+    float twistFactor = 0.0f;
+
+    // --- 追加：読み込み強化パラメータ ---
+    float uneriStrengthMax;   // 層の回転（うねり）の最大強度
+    float noiseStrengthMax;   // 頂点ノイズの最大強度
+    float bloomThreshold;     // 開花に必要な変異度の基本しきい値
+
+    ofColor leafColor, flowerColor;
+};
+
 struct AuraBeam {
     float x, z;
     float width;
@@ -778,17 +717,6 @@ struct SigilRing {
     int resolution; // 3 = 三角形, 6 = 六角形など
 };
 
-struct TreeSettings {
-    int maxDepth;
-    float expBase, expPower;
-    float lenScale, thickScale;
-    float branchLenRatio, branchThickRatio;
-    float baseAngle, mutationAngleMax;
-    float trunkHueStart, trunkHueEnd;
-    float twistFactor = 0.0f;
-    ofColor leafColor, flowerColor;
-};
-
 struct GameState {
     int dayCount = 1;
     int skillPoints = 3;
@@ -803,6 +731,7 @@ struct GameState {
     FlowerType currentFlowerType = FLOWER_NONE;
     int resilienceLevel = 0;
     float actionCooldown = 0.0f;
+    float camAutoRotation = 0;
 
     bool bCinematicMode = false;
     float flashAlpha = 0.0f;
@@ -839,8 +768,8 @@ struct Particle2D {
             angle += 8.0f * dt;
             // 寿命(life)が 1.0 -> 0.0 になるにつれて半径を縮小
             float currentR = spiralRadius * life;
-            pos.x = ofGetWidth() * 0.5f + cos(angle) * currentR;
-            pos.y = ofGetHeight() * 0.5f + sin(angle) * currentR;
+            pos.x = ofGetWidth() * 0.5f + cos(angle) * currentR - vel.x;
+            pos.y = ofGetHeight() * 0.5f + sin(angle) * currentR - vel.x;
             // サイズ：最初は大きく、徐々に小さく (25 -> 2)
             size = ofMap(life, 1.0f, 0.0f, 25.0f, 2.0f, true);
         }
@@ -853,7 +782,7 @@ struct Particle2D {
         life -= decay * (dt * 60.0f);
     }
 
-    void draw() {
+    void draw(bool shadowPass, WeatherState ws) {
         if (type == P_RAIN_SPLASH) {
             // 復活：雨の波紋（広がる楕円）
             ofPushStyle();
@@ -866,11 +795,26 @@ struct Particle2D {
             ofPopStyle();
         }
         else {
-            // 通常の加算合成用の光る玉
-            ofSetColor(0, 0, 0, life * 100); // 視認性用影
-            ofDrawCircle(pos, size * 1.2f);
-            ofSetColor(color, life * 255);
-            ofDrawCircle(pos, size);
+            if (shadowPass) {
+                ofColor shadowCol;
+                switch (type) {
+                case P_WATER:     shadowCol = ofColor(15, 40, 85); break;
+                case P_FERTILIZER: shadowCol = ofColor(35, 55, 20); break;
+                case P_KOTODAMA:   shadowCol = ofColor(65, 25, 80); break;
+                case P_BLOOM:      shadowCol = ofColor(85, 30, 45); break;
+                default:           shadowCol = ofColor(30, 30, 40); break;
+                }
+                float targetAlpha = 160.0f;
+                if (ws == SUNNY) targetAlpha = 210.0f;
+                else targetAlpha = 110.0f;
+
+                ofSetColor(shadowCol, life * targetAlpha);
+                ofDrawCircle(pos, size * 1.1f);
+            }
+            else {
+                ofSetColor(color, life * 255);
+                ofDrawCircle(pos, size);
+            }
         }
     }
 };
@@ -951,6 +895,8 @@ private:
 void Tree::setup(const ofJson& config) {
     seed = ofRandom(99999);
     auto t = config["tree"];
+    auto g = config["game"];
+
     s.maxDepth = t.value("max_depth", 6);
     s.expBase = t.value("depth_exp_base", 30.0f);
     s.expPower = t.value("depth_exp_power", 1.6f);
@@ -961,13 +907,15 @@ void Tree::setup(const ofJson& config) {
     s.baseAngle = t.value("base_angle", 25.0f);
     s.mutationAngleMax = t.value("mutation_angle_max", 45.0f);
 
+    s.uneriStrengthMax = t.value("uneri_strength_max", 180.0f);
+    s.noiseStrengthMax = t.value("noise_strength_max", 50.0f);
+    s.bloomThreshold = g.value("bloom_threshold", 0.6f);
+
     auto c = t["colors"];
     s.trunkHueStart = c.value("trunk_hue_start", 20.0f);
     s.trunkHueEnd = c.value("trunk_hue_end", 160.0f);
     s.leafColor = ofColor(c["leaf"][0], c["leaf"][1], c["leaf"][2], c["leaf"][3]);
-
-	// test value
-    //s.twistFactor = 90.0f;
+    s.twistFactor = 0.0f;
 }
 
 void Tree::update(int growthLevel, int chaosResist, int bloomLevel, GrowthType gType, FlowerType fType) {
@@ -1077,7 +1025,7 @@ void Tree::buildBranchMesh(float length, float thickness, int depth, glm::mat4 m
     glm::mat4 tipMat = glm::translate(mat, glm::vec3(0, length, 0));
 
     // --- 装飾（葉・花）のロジック ---
-    float bloomThreshold = 0.4f - (bloomLevel * 0.05f);
+    float bloomThreshold = s.bloomThreshold - (bloomLevel * 0.05f);
     bool isBloomed = (maxMutationReached > bloomThreshold);
 
     if (depth == 0 && (isBloomed || fType != FLOWER_NONE)) {
@@ -1088,6 +1036,7 @@ void Tree::buildBranchMesh(float length, float thickness, int depth, glm::mat4 m
     }
 
     // --- 次の枝への再帰 ---
+    float gravityBend = (gType == TYPE_STURDY) ? 15.0f : 0.0f;
     int numBranches = (depth < 2) ? 2 : 3;
     float angleBase = 25.0f + (bMutation * 45.0f); // カオス度で分岐角が広がる
 
@@ -1112,6 +1061,14 @@ void Tree::addStemToMesh(float r1, float r2, float h, glm::mat4 mat, int chaosRe
     ofColor col = ofColor::fromHsb(finalHue, 160, 180 + (depth * 10));
     
     float collapseThreshold = 0.9f + (chaosResist * 0.02f);
+
+    float mutationUneri = 0.0f;
+    if (maxMutationReached > 0.5f) {
+        mutationUneri = ofMap(bMutation, 0.5f, 1.0f, 0.0f, s.uneriStrengthMax, true);
+    }
+
+    float noiseTrigger = 0.8f;
+
     // 法線変換用の行列
     glm::mat3 normalMatrix = glm::inverseTranspose(glm::mat3(mat));
 
@@ -1125,7 +1082,7 @@ void Tree::addStemToMesh(float r1, float r2, float h, glm::mat4 mat, int chaosRe
         float currentY = h * ratio;
 
         // 進化タイプや設定に応じた「ねじれ」の適用
-        float twistAngle = glm::radians(s.twistFactor * ratio);
+        float twistAngle = glm::radians((s.twistFactor + mutationUneri) * ratio);
 
         for (int i = 0; i < segments; i++) {
             float angle = (i * TWO_PI / segments) + twistAngle;
@@ -1135,10 +1092,10 @@ void Tree::addStemToMesh(float r1, float r2, float h, glm::mat4 mat, int chaosRe
             glm::vec4 p(unitPos.x * currentR, currentY, unitPos.z * currentR, 1);
 
             // カオス度が高い場合の頂点ノイズ（最上段に近いほど強く揺らす）
-            if (maxMutationReached > 0.90f && ring > 0) {
-                float nStr = ofMap(maxMutationReached, 0.5, 1.0, 0, 120.0f, true) * ratio;
+            if (maxMutationReached > noiseTrigger && ring > 0) {
+                float nStr = ofMap(maxMutationReached, noiseTrigger, 1.0f, 0.0f, s.noiseStrengthMax, true) * ratio;
                 p.x += ofSignedNoise(p.x * 0.1, p.y * 0.1, ofGetElapsedTimef()) * nStr;
-                p.z += ofSignedNoise(p.z * 0.1, p.y * 0.1, ofGetElapsedTimef() + 10) * nStr;
+                p.z += ofSignedNoise(p.z * 0.1, p.y * 0.1, ofGetElapsedTimef() + 10.0f) * nStr;
             }
 
             // VBOへの登録
@@ -1331,16 +1288,15 @@ void Tree::loadPresetConfig(const ofJson& pt) {
 }
 
 void Tree::reset() {
-    // 育成状態の完全初期化
     dayCount = 1;
-    maxMutationReached = 0;
-    depthExp = 0;
     depthLevel = 0;
+    depthExp = 0;
 
-    // 目標値と現在値を一気に 0 ではなく初期形状へ
-    bLen = 0; tLen = 10;
-    bThick = 0; tThick = 2;
+    // 現在値と目標値を初期値へ
+    bLen = 0; tLen = 10.0f;
+    bThick = 0; tThick = 2.0f;
     bMutation = 0; tMutation = 0;
+    maxMutationReached = 0;
 
     totalLenEarned = 0;
     totalThickEarned = 0;
@@ -1365,32 +1321,6 @@ int Tree::getCurrentDepth() {
 #include "..\Ground.h"
 #include "../Particle.h"
 
-//struct Particle2D {
-//	glm::vec2 pos, vel;
-//	ofColor color;
-//	float size, life = 1.0, decay;
-//	ParticleType type;
-//
-//	void update() {
-//		pos += vel;
-//		if (type == P_FERTILIZER) pos.x += sin(ofGetElapsedTimef() * 5.0) * 2.0;
-//		life -= decay;
-//	}
-//
-//	void draw() {
-//		ofSetColor(color, life * 255);
-//		if (type == P_RAIN_SPLASH) {
-//			ofSetLineWidth(2);
-//			ofNoFill();
-//			ofDrawEllipse(pos, size * (1.0 - life) * 2.0, size * (1.0 - life));
-//			ofFill();
-//		}
-//		else {
-//			ofDrawCircle(pos, size * (life + 0.2));
-//		}
-//	}
-//};
-
 class ofApp : public ofBaseApp{
 	public:
 		// --- 標準イベント ---
@@ -1399,11 +1329,23 @@ class ofApp : public ofBaseApp{
 		void draw();
 		void keyPressed(int key);
 		void mousePressed(int x, int y, int button);
+		void resetGame();
 
 		void audioOut(ofSoundBuffer& buffer);
 		void loadPreset(int index);
 		void updateAudioEngine(float dt);
 		void triggerSynthSE(float freq);
+		ofColor jsonToColor(const nlohmann::json& j, ofColor defaultCol = ofColor::white) {
+			if (j.is_array() && j.size() >= 3) {
+				return ofColor(
+					(int)j[0],
+					(int)j[1],
+					(int)j[2],
+					(j.size() > 3 ? (int)j[3] : 255)
+				);
+			}
+			return defaultCol;
+		}
 
 		// --- 各種イベント ---
 		void keyReleased(int key);
@@ -1478,7 +1420,6 @@ class ofApp : public ofBaseApp{
 		void spawnBloomParticles();
 
 		// --- システム変数と設定 ---
-		float camAutoRotation = 0;
 		float visualDepthProgress = 0;
 		int lastDepthLevel = 0;
 		ofColor auraColor;
@@ -1495,12 +1436,11 @@ void ofApp::setup() {
     ofEnableSmoothing();
 
     config = ofLoadJson("settings.json");
-    if (config.empty()) {
-        ofLogError("ofApp") << "settings.json not found! Using hardcoded defaults.";
-        config["game"]["water_increment"] = 15.0;
-        config["game"]["fertilize_increment"] = 8.0;
-        config["camera"]["height_factor"] = 3.5;
+    if (config.empty() || !config.contains("ui") || !config.contains("tree")) {
+        ofLogError("ofApp") << "Critical: settings.json is missing or corrupted!";
+        // ここで詳細なデフォルト値をセットするか、ofSystemAlertDialogで警告を出す
     }
+
     mainFont.load("verdana.ttf", 10, true, true);
 
     // UI設定の読み込み
@@ -1520,11 +1460,11 @@ void ofApp::setup() {
     state.ui.btnBottomOffset = btn.value("bottom_offset", 60.0f);
 
     auto col = ui["colors"];
-    state.ui.colIdle.set(col["idle"][0], col["idle"][1], col["idle"][2], col["idle"][3]);
-    state.ui.colHover.set(col["hover"][0], col["hover"][1], col["hover"][2], col["hover"][3]);
-    state.ui.colActive.set(col["active"][0], col["active"][1], col["active"][2], col["active"][3]);
-    state.ui.colLocked.set(col["locked"][0], col["locked"][1], col["locked"][2], col["locked"][3]);
-    state.ui.colText.set(col["text"][0], col["text"][1], col["text"][2], col["text"][3]);
+    state.ui.colIdle = jsonToColor(col["idle"], ofColor(60, 60, 70, 200));
+    state.ui.colHover = jsonToColor(col["hover"], ofColor(100, 100, 130, 255));
+    state.ui.colActive = jsonToColor(col["active"], ofColor(180, 180, 220, 255));
+    state.ui.colLocked = jsonToColor(col["locked"], ofColor(40, 40, 40, 150));
+    state.ui.colText = jsonToColor(col["text"], ofColor(255, 255, 255, 255));
 
     state.ui.cooldownDuration = ui.value("cooldown_time", 1.0f);
     state.ui.statusTop = ui["status_pos"].value("top", 30.0f);
@@ -1656,7 +1596,7 @@ void ofApp::loadPreset(int index) {
     state.currentType = (GrowthType)p.value("evo_type", 0);
     state.currentFlowerType = (FlowerType)p.value("flower_type", 0);
     auto col = p["aura_color"];
-    state.auraColor = ofColor(col[0], col[1], col[2]);
+    state.auraColor = jsonToColor(p["aura_color"], ofColor::white);
 }
 
 //--------------------------------------------------------------
@@ -1745,35 +1685,43 @@ void ofApp::update() {
 void ofApp::updateCamera() {
     if (state.bViewMode) return;
 
+    // settings.json から基本パラメータを取得
     float hFactor = config["camera"].value("height_factor", 3.5f);
-    float treeH = myTree.getLen() * hFactor;
     float lerpSpeed = config["camera"].value("lerp_speed", 0.05f);
-    float targetDist, lookAtY;
+    float minDist = config["camera"].value("min_distance", 600.0f);
+    float rotSpeed = config["camera"].value("rotation_speed", 0.2f);
 
-    if (state.bGameEnded) {
-        camAutoRotation += 0.4f;
-        targetDist = myTree.getLen() * 5.0f;
-        lookAtY = treeH * 0.4f;
+    // 木の現在の物理的長さに基づいた計算
+    float currentTreeLen = myTree.getLen();
+    float treeH = currentTreeLen * hFactor;
 
-        float rad = ofDegToRad(camAutoRotation);
-        cam.setPosition(sin(rad) * targetDist, lookAtY + 50, cos(rad) * targetDist);
-        cam.lookAt(glm::vec3(0, lookAtY, 0));
-    }
-    else {
-        float minDist = config["camera"].value("min_distance", 600.0f);
-        float targetDist = std::max(minDist, treeH * 1.5f);
-        float lookAtY = treeH * 0.4f;
+    // --- シネマティック演出用の追加計算 ---
+    // 1. 成長度合いに応じた注視点の高さ調整（若いときは低く、巨木になれば中心寄りに）
+    float lookAtY = treeH * ofMap(currentTreeLen, 0, 250, 0.6f, 0.4f, true);
 
-        camAutoRotation += config["camera"].value("rotation_speed", 0.2f);
-        float rad = ofDegToRad(camAutoRotation);
+    // 2. 距離の動的調整（成長に合わせて少し余裕を持たせる）
+    float targetDist = std::max(minDist, treeH * 1.8f);
 
-        glm::vec3 targetPos(sin(rad) * targetDist, lookAtY + 100, cos(rad) * targetDist);
-        glm::vec3 targetLookAt(0, lookAtY, 0);
+    // 3. 回転速度の自動変化（ゲーム終了後の回転を少し速くしてショーケース効果を高める）
+    float actualRotSpeed = state.bGameEnded ? rotSpeed * 2.0f : rotSpeed;
+    state.camAutoRotation += actualRotSpeed;
 
-        // glm::mix (GLMのlerp) を使用してエラー回避 (修正点)
-        cam.setPosition(glm::mix(cam.getPosition(), targetPos, lerpSpeed));
-        cam.setTarget(glm::mix(cam.getTarget().getGlobalPosition(), targetLookAt, lerpSpeed));
-    }
+    // 4. 有機的な揺らぎ（サイン波による微細な上下運動）
+    float time = ofGetElapsedTimef();
+    float bobbing = sin(time * 0.5f) * (treeH * 0.05f);
+
+    // 座標計算
+    float rad = ofDegToRad(state.camAutoRotation);
+    glm::vec3 targetPos(
+        sin(rad) * targetDist,
+        lookAtY + (treeH * 0.2f) + bobbing, // 常に少し上から見下ろす
+        cos(rad) * targetDist
+    );
+    glm::vec3 targetLookAt(0, lookAtY, 0);
+
+    // スムーズな補間移動
+    cam.setPosition(glm::mix(cam.getPosition(), targetPos, lerpSpeed));
+    cam.setTarget(glm::mix(cam.getTarget().getGlobalPosition(), targetLookAt, lerpSpeed));
 }
 
 // --------------------------------------------------------------
@@ -1837,8 +1785,14 @@ void ofApp::draw() {
     ofDisableLighting();
     ofDisableDepthTest();
 
+    ofEnableAlphaBlending();
+    for (auto& p : particles2D) {
+        p.draw(true, weather.state);
+    }
     ofEnableBlendMode(OF_BLENDMODE_ADD);
-    for (auto& p : particles2D) p.draw();
+    for (auto& p : particles2D) {
+        p.draw(false, weather.state);
+    }
     ofDisableBlendMode();
 
     weather.draw2D();
@@ -2252,7 +2206,7 @@ void ofApp::spawn2DEffect(ParticleType type) {
     float sh = ofGetHeight();
     float screenScale = getUIScale();
 
-    int count = (type == P_RAIN_SPLASH) ? 1 : 60;
+    int count = (type == P_RAIN_SPLASH) ? 1 : 60 * screenScale;
 
     for (int i = 0; i < count; i++) {
         Particle2D p;
@@ -2280,10 +2234,10 @@ void ofApp::spawn2DEffect(ParticleType type) {
             auto c = config["tree"]["colors"]["elegant"];
             p.color = ofColor(c[0], c[1], c[2]);
             p.decay = ofRandom(0.01f, 0.02f);
+            p.vel = { ofRandom(-4, 4), ofRandom(-8.0f, -4.0f) };
             p.angle = ofRandom(TWO_PI);
-            p.size = ofRandom(10, 20) * screenScale;
-            float screenDiag = glm::length(glm::vec2(sw, sh));
-            p.spiralRadius = ofRandom(k.value("min_radius_ratio", 0.4f), k.value("max_radius_ratio", 0.8f)) * screenDiag;
+            p.size = ofRandom(30, 105) * screenScale;
+            p.spiralRadius = ofRandom(k.value("min_radius_ratio", 10.0f), k.value("max_radius_ratio", 25.0f)) * screenScale;
             p.life = 1.0f;
         }break;
 
@@ -2366,11 +2320,9 @@ void ofApp::drawAura() {
 }
 
 void ofApp::executeCommand(CommandType type) {
-    // クールタイム中、またはゲーム終了後は実行不可
     if (state.actionCooldown > 0 || state.bGameEnded || state.bViewMode) return;
 
     state.lastCommandIndex = static_cast<int>(type);
-
     auto& g = config["game"];
     float pitchBase = 440.0f + (myTree.getLen() * 0.5f);
     float seVol = state.audio.volume * state.audio.seRatio;
@@ -2403,15 +2355,13 @@ void ofApp::executeCommand(CommandType type) {
     if (!state.bTimeFrozen) {
         myTree.incrementDay();
         checkEvolution();
-        if (myTree.getDayCount() % config["game"].value("skill_interval", 5) == 0) {
+        if (myTree.getDayCount() % g.value("skill_interval", 5) == 0) {
             state.skillPoints++;
         }
     }
 
     weather.randomize();
-    updateWeatherBGM();  // BGMの目標音量を更新 (追加)
-
-    // クールタイムの開始
+    updateWeatherBGM();
     state.actionCooldown = state.ui.cooldownDuration;
 }
 
@@ -2424,25 +2374,7 @@ void ofApp::keyPressed(int key) {
         state.bViewMode ? cam.enableMouseInput() : cam.disableMouseInput();
     }
     if (key == 'r' || key == 'R') {
-        state.currentPresetIndex = -1;
-        myTree.setup(config);
-        myTree.reset();
-
-        // 全てのゲーム状態を Day 1 に戻す
-        state.dayCount = 0;
-        state.skillPoints = 3;
-        state.bGameEnded = false;
-        state.currentType = TYPE_DEFAULT;
-        state.currentFlowerType = FLOWER_NONE;
-        visualDepthProgress = 0;
-        lastDepthLevel = 0;
-        growthLevel = 0;
-        chaosResistLevel = 0;
-        bloomCatalystLevel = 0;
-
-        weather.state = SUNNY;
-        updateWeatherBGM();
-        ofLogNotice("System") << "Returned to Normal Gameplay (Day 0)";
+        resetGame();
     }
 	// 音量調整
     if (key == '[') state.audio.volume = ofClamp(state.audio.volume - 0.05f, 0, 1);
@@ -2454,7 +2386,10 @@ void ofApp::keyPressed(int key) {
 
         // シネマティックモード切替
         if (key == 'h' || key == 'H') state.bCinematicMode = !state.bCinematicMode;
-        if (key == 'w' || key == 'W') updateWeatherBGM(); weather.randomize();
+        if (key == 'w' || key == 'W') {
+            weather.randomize();
+            updateWeatherBGM();
+        }
         // [T]キーで日数を一気に進める
         if (key == 't' || key == 'T') {
             for (int i = 0; i < 5; i++) {
@@ -2486,27 +2421,9 @@ void ofApp::keyPressed(int key) {
 }
 
 void ofApp::processCommand(int key) {
-    if (state.bViewMode || myTree.getDayCount() >= state.maxDays) return;
-
-    bool actionTaken = false;
-    auto& g = config["game"];
-
-    // 開花判定用しきい値
-    float threshold = 0.4f - (bloomCatalystLevel * 0.05f);
-    bool wasBloomed = (myTree.getMaxMutation() > threshold);
-
     if (key == '1') executeCommand(CMD_WATER);
     if (key == '2') executeCommand(CMD_FERTILIZER);
     if (key == '3') executeCommand(CMD_KOTODAMA);
-
-    if (actionTaken) {
-        myTree.incrementDay();
-        checkEvolution();
-        if (myTree.getDayCount() % config["game"].value("skill_interval", 5) == 0) {
-            state.skillPoints++;
-        }
-        weather.randomize();
-    }
 }
 
 //--------------------------------------------------------------
@@ -2566,6 +2483,52 @@ void ofApp::checkEvolution() {
         state.evo.hasEvolvedFlower = true;
         spawn2DEffect(P_BLOOM);
     }
+}
+
+void ofApp::resetGame() {
+    // 1. 基本ステータスの初期化
+    state.dayCount = 1;
+    state.skillPoints = 3;
+    state.bGameEnded = false;
+    state.currentType = TYPE_DEFAULT;
+    state.currentFlowerType = FLOWER_NONE;
+    state.actionCooldown = 0.0f;
+    state.lastCommandIndex = -1;
+    state.currentPresetIndex = -1;
+    state.finalTitle = "";
+    state.flashAlpha = 0.0f;
+
+    // 2. 成長段階とUIアニメーションの同期リセット
+    visualDepthProgress = 0.0f;
+    lastDepthLevel = 0;
+    growthLevel = 0;
+    chaosResistLevel = 0;
+    bloomCatalystLevel = 0;
+    state.barState = BAR_IDLE;
+    state.barFlashTimer = 0.0f;
+    state.levelUpBubbleTimer = 0.0f;
+
+    // 3. オブジェクトの初期化
+    myTree.setup(config); // 設定を再ロード
+    myTree.reset();       // 木の物理パラメータを初期化
+    weather.state = SUNNY;
+    weather.setup();      // 雨のパーティクル等を再生成
+    updateWeatherBGM();   // BGMを晴れに戻す
+
+    // 4. 演出・エフェクトの完全消去
+    particles.clear();
+    particles2D.clear();
+    auraBeams.clear();
+    state.auraTimer = 0.0f;
+
+    // 5. カメラとライティングのリセット
+    state.camAutoRotation = 0.0f;
+    cam.reset(); // easyCamの内部状態（マウス操作等）をリセット
+    cam.setTarget(glm::vec3(0, 50, 0));
+    cam.setDistance(600);
+    cam.disableMouseInput(); // ビューモードを強制解除
+
+    ofLogNotice("System") << "Game Reset: Returned to Day 1";
 }
 
 void ofApp::keyReleased(int key) {}

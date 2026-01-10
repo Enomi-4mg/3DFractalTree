@@ -34,6 +34,7 @@ public:
     int getSeed() { return seed; }
     float getDepthProgress();
     ofVboMesh& getVboMesh() { return vboMesh; }
+    void resetMutationReached() { maxMutationReached = 0; }
 
 private:
     // 内部ロジック：座標変換とメッシュ構築
@@ -53,6 +54,10 @@ private:
     float totalLenEarned = 0;
     float totalThickEarned = 0;
     float totalMutationEarned = 0;
+    float lenExp = 0;
+    int lenLevel = 0;
+    float thickExp = 0;
+    int thickLevel = 0;
 
     // --- 状態管理 ---
     ofVboMesh vboMesh; 

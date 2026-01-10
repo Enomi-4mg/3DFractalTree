@@ -1,7 +1,6 @@
 #pragma once
 #include "ofMain.h"
-
-enum WeatherState { SUNNY, RAINY, MOONLIGHT };
+#include "..\Constants.h"
 
 class Weather {
     // 2D‚Ì‰Jü‚ğŠÇ—‚·‚é\‘¢‘Ì

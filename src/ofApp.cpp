@@ -256,35 +256,43 @@ void ofApp::update() {
 void ofApp::updateCamera() {
     if (state.bViewMode) return;
 
+    // settings.json から基本パラメータを取得
     float hFactor = config["camera"].value("height_factor", 3.5f);
-    float treeH = myTree.getLen() * hFactor;
     float lerpSpeed = config["camera"].value("lerp_speed", 0.05f);
-    float targetDist, lookAtY;
+    float minDist = config["camera"].value("min_distance", 600.0f);
+    float rotSpeed = config["camera"].value("rotation_speed", 0.2f);
 
-    if (state.bGameEnded) {
-        camAutoRotation += 0.4f;
-        targetDist = myTree.getLen() * 5.0f;
-        lookAtY = treeH * 0.4f;
+    // 木の現在の物理的長さに基づいた計算
+    float currentTreeLen = myTree.getLen();
+    float treeH = currentTreeLen * hFactor;
 
-        float rad = ofDegToRad(camAutoRotation);
-        cam.setPosition(sin(rad) * targetDist, lookAtY + 50, cos(rad) * targetDist);
-        cam.lookAt(glm::vec3(0, lookAtY, 0));
-    }
-    else {
-        float minDist = config["camera"].value("min_distance", 600.0f);
-        float targetDist = std::max(minDist, treeH * 1.5f);
-        float lookAtY = treeH * 0.4f;
+    // --- シネマティック演出用の追加計算 ---
+    // 1. 成長度合いに応じた注視点の高さ調整（若いときは低く、巨木になれば中心寄りに）
+    float lookAtY = treeH * ofMap(currentTreeLen, 0, 250, 0.6f, 0.4f, true);
 
-        camAutoRotation += config["camera"].value("rotation_speed", 0.2f);
-        float rad = ofDegToRad(camAutoRotation);
+    // 2. 距離の動的調整（成長に合わせて少し余裕を持たせる）
+    float targetDist = std::max(minDist, treeH * 1.8f);
 
-        glm::vec3 targetPos(sin(rad) * targetDist, lookAtY + 100, cos(rad) * targetDist);
-        glm::vec3 targetLookAt(0, lookAtY, 0);
+    // 3. 回転速度の自動変化（ゲーム終了後の回転を少し速くしてショーケース効果を高める）
+    float actualRotSpeed = state.bGameEnded ? rotSpeed * 2.0f : rotSpeed;
+    state.camAutoRotation += actualRotSpeed;
 
-        // glm::mix (GLMのlerp) を使用してエラー回避 (修正点)
-        cam.setPosition(glm::mix(cam.getPosition(), targetPos, lerpSpeed));
-        cam.setTarget(glm::mix(cam.getTarget().getGlobalPosition(), targetLookAt, lerpSpeed));
-    }
+    // 4. 有機的な揺らぎ（サイン波による微細な上下運動）
+    float time = ofGetElapsedTimef();
+    float bobbing = sin(time * 0.5f) * (treeH * 0.05f);
+
+    // 座標計算
+    float rad = ofDegToRad(state.camAutoRotation);
+    glm::vec3 targetPos(
+        sin(rad) * targetDist,
+        lookAtY + (treeH * 0.2f) + bobbing, // 常に少し上から見下ろす
+        cos(rad) * targetDist
+    );
+    glm::vec3 targetLookAt(0, lookAtY, 0);
+
+    // スムーズな補間移動
+    cam.setPosition(glm::mix(cam.getPosition(), targetPos, lerpSpeed));
+    cam.setTarget(glm::mix(cam.getTarget().getGlobalPosition(), targetLookAt, lerpSpeed));
 }
 
 // --------------------------------------------------------------
@@ -348,8 +356,14 @@ void ofApp::draw() {
     ofDisableLighting();
     ofDisableDepthTest();
 
+    ofEnableAlphaBlending();
+    for (auto& p : particles2D) {
+        p.draw(true, weather.state);
+    }
     ofEnableBlendMode(OF_BLENDMODE_ADD);
-    for (auto& p : particles2D) p.draw();
+    for (auto& p : particles2D) {
+        p.draw(false, weather.state);
+    }
     ofDisableBlendMode();
 
     weather.draw2D();
@@ -763,7 +777,7 @@ void ofApp::spawn2DEffect(ParticleType type) {
     float sh = ofGetHeight();
     float screenScale = getUIScale();
 
-    int count = (type == P_RAIN_SPLASH) ? 1 : 60;
+    int count = (type == P_RAIN_SPLASH) ? 1 : 60 * screenScale;
 
     for (int i = 0; i < count; i++) {
         Particle2D p;
@@ -791,10 +805,10 @@ void ofApp::spawn2DEffect(ParticleType type) {
             auto c = config["tree"]["colors"]["elegant"];
             p.color = ofColor(c[0], c[1], c[2]);
             p.decay = ofRandom(0.01f, 0.02f);
+            p.vel = { ofRandom(-4, 4), ofRandom(-8.0f, -4.0f) };
             p.angle = ofRandom(TWO_PI);
-            p.size = ofRandom(10, 20) * screenScale;
-            float screenDiag = glm::length(glm::vec2(sw, sh));
-            p.spiralRadius = ofRandom(k.value("min_radius_ratio", 0.4f), k.value("max_radius_ratio", 0.8f)) * screenDiag;
+            p.size = ofRandom(30, 105) * screenScale;
+            p.spiralRadius = ofRandom(k.value("min_radius_ratio", 10.0f), k.value("max_radius_ratio", 25.0f)) * screenScale;
             p.life = 1.0f;
         }break;
 
@@ -877,11 +891,9 @@ void ofApp::drawAura() {
 }
 
 void ofApp::executeCommand(CommandType type) {
-    // クールタイム中、またはゲーム終了後は実行不可
     if (state.actionCooldown > 0 || state.bGameEnded || state.bViewMode) return;
 
     state.lastCommandIndex = static_cast<int>(type);
-
     auto& g = config["game"];
     float pitchBase = 440.0f + (myTree.getLen() * 0.5f);
     float seVol = state.audio.volume * state.audio.seRatio;
@@ -914,15 +926,13 @@ void ofApp::executeCommand(CommandType type) {
     if (!state.bTimeFrozen) {
         myTree.incrementDay();
         checkEvolution();
-        if (myTree.getDayCount() % config["game"].value("skill_interval", 5) == 0) {
+        if (myTree.getDayCount() % g.value("skill_interval", 5) == 0) {
             state.skillPoints++;
         }
     }
 
     weather.randomize();
-    updateWeatherBGM();  // BGMの目標音量を更新 (追加)
-
-    // クールタイムの開始
+    updateWeatherBGM();
     state.actionCooldown = state.ui.cooldownDuration;
 }
 
@@ -935,25 +945,7 @@ void ofApp::keyPressed(int key) {
         state.bViewMode ? cam.enableMouseInput() : cam.disableMouseInput();
     }
     if (key == 'r' || key == 'R') {
-        state.currentPresetIndex = -1;
-        myTree.setup(config);
-        myTree.reset();
-
-        // 全てのゲーム状態を Day 1 に戻す
-        state.dayCount = 0;
-        state.skillPoints = 3;
-        state.bGameEnded = false;
-        state.currentType = TYPE_DEFAULT;
-        state.currentFlowerType = FLOWER_NONE;
-        visualDepthProgress = 0;
-        lastDepthLevel = 0;
-        growthLevel = 0;
-        chaosResistLevel = 0;
-        bloomCatalystLevel = 0;
-
-        weather.state = SUNNY;
-        updateWeatherBGM();
-        ofLogNotice("System") << "Returned to Normal Gameplay (Day 0)";
+        resetGame();
     }
 	// 音量調整
     if (key == '[') state.audio.volume = ofClamp(state.audio.volume - 0.05f, 0, 1);
@@ -1000,27 +992,9 @@ void ofApp::keyPressed(int key) {
 }
 
 void ofApp::processCommand(int key) {
-    if (state.bViewMode || myTree.getDayCount() >= state.maxDays) return;
-
-    bool actionTaken = false;
-    auto& g = config["game"];
-
-    // 開花判定用しきい値
-    float threshold = 0.4f - (bloomCatalystLevel * 0.05f);
-    bool wasBloomed = (myTree.getMaxMutation() > threshold);
-
     if (key == '1') executeCommand(CMD_WATER);
     if (key == '2') executeCommand(CMD_FERTILIZER);
     if (key == '3') executeCommand(CMD_KOTODAMA);
-
-    if (actionTaken) {
-        myTree.incrementDay();
-        checkEvolution();
-        if (myTree.getDayCount() % config["game"].value("skill_interval", 5) == 0) {
-            state.skillPoints++;
-        }
-        weather.randomize();
-    }
 }
 
 //--------------------------------------------------------------
@@ -1080,6 +1054,52 @@ void ofApp::checkEvolution() {
         state.evo.hasEvolvedFlower = true;
         spawn2DEffect(P_BLOOM);
     }
+}
+
+void ofApp::resetGame() {
+    // 1. 基本ステータスの初期化
+    state.dayCount = 1;
+    state.skillPoints = 3;
+    state.bGameEnded = false;
+    state.currentType = TYPE_DEFAULT;
+    state.currentFlowerType = FLOWER_NONE;
+    state.actionCooldown = 0.0f;
+    state.lastCommandIndex = -1;
+    state.currentPresetIndex = -1;
+    state.finalTitle = "";
+    state.flashAlpha = 0.0f;
+
+    // 2. 成長段階とUIアニメーションの同期リセット
+    visualDepthProgress = 0.0f;
+    lastDepthLevel = 0;
+    growthLevel = 0;
+    chaosResistLevel = 0;
+    bloomCatalystLevel = 0;
+    state.barState = BAR_IDLE;
+    state.barFlashTimer = 0.0f;
+    state.levelUpBubbleTimer = 0.0f;
+
+    // 3. オブジェクトの初期化
+    myTree.setup(config); // 設定を再ロード
+    myTree.reset();       // 木の物理パラメータを初期化
+    weather.state = SUNNY;
+    weather.setup();      // 雨のパーティクル等を再生成
+    updateWeatherBGM();   // BGMを晴れに戻す
+
+    // 4. 演出・エフェクトの完全消去
+    particles.clear();
+    particles2D.clear();
+    auraBeams.clear();
+    state.auraTimer = 0.0f;
+
+    // 5. カメラとライティングのリセット
+    state.camAutoRotation = 0.0f;
+    cam.reset(); // easyCamの内部状態（マウス操作等）をリセット
+    cam.setTarget(glm::vec3(0, 50, 0));
+    cam.setDistance(600);
+    cam.disableMouseInput(); // ビューモードを強制解除
+
+    ofLogNotice("System") << "Game Reset: Returned to Day 1";
 }
 
 void ofApp::keyReleased(int key) {}

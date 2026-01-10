@@ -1,7 +1,9 @@
-#include "Tree.h"
+ï»¿#include "Tree.h"
 void Tree::setup(const ofJson& config) {
     seed = ofRandom(99999);
     auto t = config["tree"];
+    auto g = config["game"];
+
     s.maxDepth = t.value("max_depth", 6);
     s.expBase = t.value("depth_exp_base", 30.0f);
     s.expPower = t.value("depth_exp_power", 1.6f);
@@ -12,17 +14,19 @@ void Tree::setup(const ofJson& config) {
     s.baseAngle = t.value("base_angle", 25.0f);
     s.mutationAngleMax = t.value("mutation_angle_max", 45.0f);
 
+    s.uneriStrengthMax = t.value("uneri_strength_max", 180.0f);
+    s.noiseStrengthMax = t.value("noise_strength_max", 50.0f);
+    s.bloomThreshold = g.value("bloom_threshold", 0.6f);
+
     auto c = t["colors"];
     s.trunkHueStart = c.value("trunk_hue_start", 20.0f);
     s.trunkHueEnd = c.value("trunk_hue_end", 160.0f);
     s.leafColor = ofColor(c["leaf"][0], c["leaf"][1], c["leaf"][2], c["leaf"][3]);
-
-	// test value
-    //s.twistFactor = 90.0f;
+    s.twistFactor = 0.0f;
 }
 
 void Tree::update(int growthLevel, int chaosResist, int bloomLevel, GrowthType gType, FlowerType fType) {
-    // •âŠÔƒƒWƒbƒN‚ÍˆÛ
+    // è£œé–“ãƒ­ã‚¸ãƒƒã‚¯ã¯ç¶­æŒ
     bLen = ofLerp(bLen, tLen, 0.1f);
     bThick = ofLerp(bThick, tThick, 0.1f);
     bMutation = ofLerp(bMutation, tMutation, 0.1f);
@@ -37,7 +41,7 @@ void Tree::update(int growthLevel, int chaosResist, int bloomLevel, GrowthType g
     if (bNeedsUpdate || abs(bLen - tLen) > 0.5f || abs(bThick - tThick) > 0.1f) {
         vboMesh.clear();
         ofSetRandomSeed(seed);
-        // \‘¢‘Ì s ‚ğŒo—R‚µ‚Ä•`‰æƒpƒ‰ƒ[ƒ^‚ğ“n‚·
+        // æ§‹é€ ä½“ s ã‚’çµŒç”±ã—ã¦æç”»ãƒ‘ãƒ©ãƒ¡ãƒ¼ã‚¿ã‚’æ¸¡ã™
         buildBranchMesh(bLen * s.lenScale, bThick * s.thickScale, depthLevel, glm::mat4(1.0), chaosResist, bloomLevel, gType, fType);
         bNeedsUpdate = false;
     }
@@ -48,16 +52,16 @@ void Tree::draw() {
 }
 
 void Tree::water(float buff, int resilienceLevel, float increment) {
-    // ƒfƒƒŠƒbƒgŒyŒ¸ŒW” (1ƒŒƒxƒ‹‚É‚Â‚«15%ŒyŒ¸)
+    // ãƒ‡ãƒ¡ãƒªãƒƒãƒˆè»½æ¸›ä¿‚æ•° (1ãƒ¬ãƒ™ãƒ«ã«ã¤ã15%è»½æ¸›)
     float penaltyFactor = 1.0f - (resilienceLevel * 0.15f);
 
     depthExp += 5.0f * buff;
 
     float lenGain = increment * 2.0f * buff;
     tLen += lenGain;
-    totalLenEarned += lenGain; // —İÏ‰ÁZ
+    totalLenEarned += lenGain; // ç´¯ç©åŠ ç®—
 
-    // ƒfƒƒŠƒbƒgi‘¾‚³Œ¸­j‚ÉŒyŒ¸‚ğ“K—p
+    // ãƒ‡ãƒ¡ãƒªãƒƒãƒˆï¼ˆå¤ªã•æ¸›å°‘ï¼‰ã«è»½æ¸›ã‚’é©ç”¨
     tThick = max(2.0f, tThick - (3.0f * penaltyFactor));
     tMutation = max(0.0f, tMutation - 0.1f);
 }
@@ -67,12 +71,12 @@ void Tree::fertilize(float buff, int resilienceLevel, float increment) {
 
     depthExp += 5.0f * buff;
 
-    // ƒfƒƒŠƒbƒgi’·‚³Œ¸­j‚ÉŒyŒ¸‚ğ“K—p
+    // ãƒ‡ãƒ¡ãƒªãƒƒãƒˆï¼ˆé•·ã•æ¸›å°‘ï¼‰ã«è»½æ¸›ã‚’é©ç”¨
     tLen = max(10.0f, tLen - (5.0f * penaltyFactor));
 
     float thickGain = increment * 2.0f * buff;
     tThick += thickGain;
-    totalThickEarned += thickGain; // —İÏ‰ÁZ
+    totalThickEarned += thickGain; // ç´¯ç©åŠ ç®—
 
     tMutation = max(0.0f, tMutation - 0.05f);
 }
@@ -84,35 +88,35 @@ void Tree::kotodama(float buff) {
 
     float mutGain = 0.2f * buff;
     tMutation = ofClamp(tMutation + mutGain, 0.0f, 1.0f);
-    totalMutationEarned += mutGain; // —İÏ‰ÁZ
+    totalMutationEarned += mutGain; // ç´¯ç©åŠ ç®—
 }
 
 void Tree::applyEvolution(GrowthType type) {
     switch (type) {
     case TYPE_ELEGANT:
-        s.branchLenRatio = 0.82f;   // ‚æ‚è’·‚­L‚Ñ‚é
-        s.baseAngle = 18.0f;        // ‰sŠp‚ÅƒXƒ}[ƒg‚ÈˆóÛ
-        s.twistFactor = 15.0f;      // T‚¦‚ß‚È‚Ë‚¶‚ê
+        s.branchLenRatio = 0.82f;   // ã‚ˆã‚Šé•·ãä¼¸ã³ã‚‹
+        s.baseAngle = 18.0f;        // é‹­è§’ã§ã‚¹ãƒãƒ¼ãƒˆãªå°è±¡
+        s.twistFactor = 15.0f;      // æ§ãˆã‚ãªã­ã˜ã‚Œ
         break;
     case TYPE_STURDY:
-        s.branchThickRatio = 0.85f; // ‘¾‚³‚ğˆÛ
-        s.baseAngle = 35.0f;        // ‚Ç‚Á‚µ‚è‚ÆL‚ª‚é
-        s.twistFactor = 40.0f;      // —Í‹­‚¢‚Ë‚¶‚ê
+        s.branchThickRatio = 0.85f; // å¤ªã•ã‚’ç¶­æŒ
+        s.baseAngle = 35.0f;        // ã©ã£ã—ã‚Šã¨åºƒãŒã‚‹
+        s.twistFactor = 40.0f;      // åŠ›å¼·ã„ã­ã˜ã‚Œ
         break;
     case TYPE_ELDRITCH:
-        s.mutationAngleMax = 65.0f; // —\‘ª•s”\‚ÈL‚ª‚è
-        s.twistFactor = 150.0f;     // Œƒ‚µ‚¢—†ù
-        s.trunkHueEnd += 100.0f;    // FÊ•Ï‰»‚ğŠg‘å
+        s.mutationAngleMax = 65.0f; // äºˆæ¸¬ä¸èƒ½ãªåºƒãŒã‚Š
+        s.twistFactor = 150.0f;     // æ¿€ã—ã„èºæ—‹
+        s.trunkHueEnd += 100.0f;    // è‰²å½©å¤‰åŒ–ã‚’æ‹¡å¤§
         break;
     }
-    bNeedsUpdate = true; // ƒƒbƒVƒ…‚ğÄ\’z
+    bNeedsUpdate = true; // ãƒ¡ãƒƒã‚·ãƒ¥ã‚’å†æ§‹ç¯‰
 }
 
 glm::mat4 Tree::getNextBranchMatrix(glm::mat4 tipMat, int index, int total, float angleBase) {
     glm::mat4 m = tipMat;
-    // Y²‰ñ“]‚Å‰~ó‚É”z’u
+    // Yè»¸å›è»¢ã§å††çŠ¶ã«é…ç½®
     m = glm::rotate(m, glm::radians(index * (360.0f / total)), glm::vec3(0, 1, 0));
-    // ŠO‘¤‚Ö“|‚·‰ñ“]iƒJƒIƒX“x‚É‚æ‚é—h‚ç‚¬j
+    // å¤–å´ã¸å€’ã™å›è»¢ï¼ˆã‚«ã‚ªã‚¹åº¦ã«ã‚ˆã‚‹æºã‚‰ãï¼‰
     float wobble = ofRandom(-10, 10) * bMutation;
     m = glm::rotate(m, glm::radians(angleBase + wobble), glm::vec3(0, 0, 1));
     return m;
@@ -121,14 +125,14 @@ glm::mat4 Tree::getNextBranchMatrix(glm::mat4 tipMat, int index, int total, floa
 void Tree::buildBranchMesh(float length, float thickness, int depth, glm::mat4 mat, int chaosResist, int bloomLevel, GrowthType gType, FlowerType fType) {
     if (depth < 0) return;
 
-    // Œ»İ‚Ì}iŠ²j‚ğƒƒbƒVƒ…‚É’Ç‰Á
+    // ç¾åœ¨ã®æï¼ˆå¹¹ï¼‰ã‚’ãƒ¡ãƒƒã‚·ãƒ¥ã«è¿½åŠ 
     addStemToMesh(thickness, thickness * s.branchThickRatio, length, mat, chaosResist, depth, gType);
 
-    // }‚Ìæ’[‚Ìs—ñ‚ğŒvZ
+    // æã®å…ˆç«¯ã®è¡Œåˆ—ã‚’è¨ˆç®—
     glm::mat4 tipMat = glm::translate(mat, glm::vec3(0, length, 0));
 
-    // --- ‘•üi—tE‰Ôj‚ÌƒƒWƒbƒN ---
-    float bloomThreshold = 0.4f - (bloomLevel * 0.05f);
+    // --- è£…é£¾ï¼ˆè‘‰ãƒ»èŠ±ï¼‰ã®ãƒ­ã‚¸ãƒƒã‚¯ ---
+    float bloomThreshold = s.bloomThreshold - (bloomLevel * 0.05f);
     bool isBloomed = (maxMutationReached > bloomThreshold);
 
     if (depth == 0 && (isBloomed || fType != FLOWER_NONE)) {
@@ -138,9 +142,10 @@ void Tree::buildBranchMesh(float length, float thickness, int depth, glm::mat4 m
         addLeafToMesh(thickness, tipMat);
     }
 
-    // --- Ÿ‚Ì}‚Ö‚ÌÄ‹A ---
+    // --- æ¬¡ã®æã¸ã®å†å¸° ---
+    float gravityBend = (gType == TYPE_STURDY) ? 15.0f : 0.0f;
     int numBranches = (depth < 2) ? 2 : 3;
-    float angleBase = 25.0f + (bMutation * 45.0f); // ƒJƒIƒX“x‚Å•ªŠòŠp‚ªL‚ª‚é
+    float angleBase = 25.0f + (bMutation * 45.0f); // ã‚«ã‚ªã‚¹åº¦ã§åˆ†å²è§’ãŒåºƒãŒã‚‹
 
     for (int i = 0; i < numBranches; i++) {
         glm::mat4 childMat = getNextBranchMatrix(tipMat, i, numBranches, angleBase);
@@ -149,74 +154,82 @@ void Tree::buildBranchMesh(float length, float thickness, int depth, glm::mat4 m
 }
 
 void Tree::addStemToMesh(float r1, float r2, float h, glm::mat4 mat, int chaosResist, int depth, GrowthType gType) {
-    int segments = (depth <= 4) ? 3 : 5; // LOD: [‚¢}‚Ù‚ÇŠp”‚ğŒ¸‚ç‚·
-    int subdivisions = 4;                // c•ûŒü‚Ì•ªŠ„”
+    int segments = (depth <= 4) ? 3 : 5; // LOD: æ·±ã„æã»ã©è§’æ•°ã‚’æ¸›ã‚‰ã™
+    int subdivisions = 4;                // ç¸¦æ–¹å‘ã®åˆ†å‰²æ•°
     int numRings = subdivisions + 1;
 
-    // --- F‚ÌŒvZ ---
+    // --- è‰²ã®è¨ˆç®— ---
     float timeShift = ofGetElapsedTimef() * 20.0f;
     if (gType == TYPE_ELDRITCH) {
-        timeShift = ofGetElapsedTimef() * 100.0f; // Eldritch‚ÍŒƒ‚µ‚­F‚ª“®‚­
+        timeShift = ofGetElapsedTimef() * 100.0f; // Eldritchã¯æ¿€ã—ãè‰²ãŒå‹•ã
     }
     float hueBase = ofMap(bMutation, 0, 1, s.trunkHueStart, s.trunkHueEnd);
     float finalHue = fmod(hueBase + timeShift + (depth * 10), 255.0f);
     ofColor col = ofColor::fromHsb(finalHue, 160, 180 + (depth * 10));
     
     float collapseThreshold = 0.9f + (chaosResist * 0.02f);
-    // –@ü•ÏŠ·—p‚Ìs—ñ
+
+    float mutationUneri = 0.0f;
+    if (maxMutationReached > 0.5f) {
+        mutationUneri = ofMap(bMutation, 0.5f, 1.0f, 0.0f, s.uneriStrengthMax, true);
+    }
+
+    float noiseTrigger = 0.8f;
+
+    // æ³•ç·šå¤‰æ›ç”¨ã®è¡Œåˆ—
     glm::mat3 normalMatrix = glm::inverseTranspose(glm::mat3(mat));
 
-    // Œ»İ‚ÌVBO‚Ì’¸“_ŠJnƒCƒ“ƒfƒbƒNƒX‚ğ‹L˜^
+    // ç¾åœ¨ã®VBOã®é ‚ç‚¹é–‹å§‹ã‚¤ãƒ³ãƒ‡ãƒƒã‚¯ã‚¹ã‚’è¨˜éŒ²
     int startIndex = vboMesh.getNumVertices();
 
-    // 1. ’¸“_‚Æ–@ü‚Ì¶¬
+    // 1. é ‚ç‚¹ã¨æ³•ç·šã®ç”Ÿæˆ
     for (int ring = 0; ring < numRings; ring++) {
         float ratio = (float)ring / subdivisions;
-        float currentR = ofLerp(r1, r2, ratio); // ƒe[ƒpƒŠƒ“ƒO
+        float currentR = ofLerp(r1, r2, ratio); // ãƒ†ãƒ¼ãƒ‘ãƒªãƒ³ã‚°
         float currentY = h * ratio;
 
-        // i‰»ƒ^ƒCƒv‚âİ’è‚É‰‚¶‚½u‚Ë‚¶‚êv‚Ì“K—p
-        float twistAngle = glm::radians(s.twistFactor * ratio);
+        // é€²åŒ–ã‚¿ã‚¤ãƒ—ã‚„è¨­å®šã«å¿œã˜ãŸã€Œã­ã˜ã‚Œã€ã®é©ç”¨
+        float twistAngle = glm::radians((s.twistFactor + mutationUneri) * ratio);
 
         for (int i = 0; i < segments; i++) {
             float angle = (i * TWO_PI / segments) + twistAngle;
             glm::vec3 unitPos(cos(angle), 0, sin(angle));
 
-            // ’¸“_À•Wiƒ[ƒJƒ‹j
+            // é ‚ç‚¹åº§æ¨™ï¼ˆãƒ­ãƒ¼ã‚«ãƒ«ï¼‰
             glm::vec4 p(unitPos.x * currentR, currentY, unitPos.z * currentR, 1);
 
-            // ƒJƒIƒX“x‚ª‚‚¢ê‡‚Ì’¸“_ƒmƒCƒYiÅã’i‚É‹ß‚¢‚Ù‚Ç‹­‚­—h‚ç‚·j
-            if (maxMutationReached > 0.90f && ring > 0) {
-                float nStr = ofMap(maxMutationReached, 0.5, 1.0, 0, 120.0f, true) * ratio;
+            // ã‚«ã‚ªã‚¹åº¦ãŒé«˜ã„å ´åˆã®é ‚ç‚¹ãƒã‚¤ã‚ºï¼ˆæœ€ä¸Šæ®µã«è¿‘ã„ã»ã©å¼·ãæºã‚‰ã™ï¼‰
+            if (maxMutationReached > noiseTrigger && ring > 0) {
+                float nStr = ofMap(maxMutationReached, noiseTrigger, 1.0f, 0.0f, s.noiseStrengthMax, true) * ratio;
                 p.x += ofSignedNoise(p.x * 0.1, p.y * 0.1, ofGetElapsedTimef()) * nStr;
-                p.z += ofSignedNoise(p.z * 0.1, p.y * 0.1, ofGetElapsedTimef() + 10) * nStr;
+                p.z += ofSignedNoise(p.z * 0.1, p.y * 0.1, ofGetElapsedTimef() + 10.0f) * nStr;
             }
 
-            // VBO‚Ö‚Ì“o˜^
+            // VBOã¸ã®ç™»éŒ²
             vboMesh.addVertex(glm::vec3(mat * p));
-            vboMesh.addNormal(normalMatrix * unitPos); // ŠÈˆÕ–@ü
+            vboMesh.addNormal(normalMatrix * unitPos); // ç°¡æ˜“æ³•ç·š
             vboMesh.addColor(col);
         }
     }
 
-    // 2. ƒCƒ“ƒfƒbƒNƒX‚Ì¶¬i–Ê‚ğ“\‚éj
+    // 2. ã‚¤ãƒ³ãƒ‡ãƒƒã‚¯ã‚¹ã®ç”Ÿæˆï¼ˆé¢ã‚’è²¼ã‚‹ï¼‰
     for (int ring = 0; ring < subdivisions; ring++) {
         for (int i = 0; i < segments; i++) {
             int nextI = (i + 1) % segments;
 
-            // Œ»İ‚Ì‘w‚Ì2“_
+            // ç¾åœ¨ã®å±¤ã®2ç‚¹
             int v0 = startIndex + (ring * segments) + i;
             int v1 = startIndex + (ring * segments) + nextI;
-            // Ÿ‚Ì‘w‚Ì2“_
+            // æ¬¡ã®å±¤ã®2ç‚¹
             int v2 = startIndex + ((ring + 1) * segments) + i;
             int v3 = startIndex + ((ring + 1) * segments) + nextI;
 
-            // OŠpŒ`1
+            // ä¸‰è§’å½¢1
             vboMesh.addIndex(v0);
             vboMesh.addIndex(v1);
             vboMesh.addIndex(v2);
 
-            // OŠpŒ`2
+            // ä¸‰è§’å½¢2
             vboMesh.addIndex(v1);
             vboMesh.addIndex(v3);
             vboMesh.addIndex(v2);
@@ -230,14 +243,14 @@ float Tree::getExpForDepth(int d) {
 }
 
 float Tree::getDepthProgress() {
-    // Œ»İ‚ÌƒŒƒxƒ‹‚ÆŸ‚ÌƒŒƒxƒ‹‚É•K—v‚ÈŒoŒ±’l‚ğæ“¾
+    // ç¾åœ¨ã®ãƒ¬ãƒ™ãƒ«ã¨æ¬¡ã®ãƒ¬ãƒ™ãƒ«ã«å¿…è¦ãªçµŒé¨“å€¤ã‚’å–å¾—
     float curThreshold = getExpForDepth(depthLevel);
     float nxtThreshold = getExpForDepth(depthLevel + 1);
 
-    // 0œZ‚ğ–h‚®
+    // 0é™¤ç®—ã‚’é˜²ã
     if (nxtThreshold <= curThreshold) return 1.0f;
 
-    // Œ»İ‚ÌƒŒƒxƒ‹“à‚Å‚Ìi’»—¦‚ğ 0.0 ~ 1.0 ‚Å•Ô‚·
+    // ç¾åœ¨ã®ãƒ¬ãƒ™ãƒ«å†…ã§ã®é€²æ—ç‡ã‚’ 0.0 ~ 1.0 ã§è¿”ã™
     return ofClamp((depthExp - curThreshold) / (nxtThreshold - curThreshold), 0.0f, 1.0f);
 }
 
@@ -247,18 +260,18 @@ void Tree::addLeafToMesh(float thickness, glm::mat4 mat) {
     float w = thickness * 3.0f;
     float h = thickness * 6.0f;
 
-    // 4’¸“_ (‚Ğ‚µŒ`)
-    vboMesh.addVertex(glm::vec3(mat * glm::vec4(0, 0, 0, 1)));           // 0: •t‚¯ª
-    vboMesh.addVertex(glm::vec3(mat * glm::vec4(-w, h * 0.5f, 0, 1)));   // 1: ¶
-    vboMesh.addVertex(glm::vec3(mat * glm::vec4(w, h * 0.5f, 0, 1)));    // 2: ‰E
-    vboMesh.addVertex(glm::vec3(mat * glm::vec4(0, h, 0, 1)));           // 3: æ’[
+    // 4é ‚ç‚¹ (ã²ã—å½¢)
+    vboMesh.addVertex(glm::vec3(mat * glm::vec4(0, 0, 0, 1)));           // 0: ä»˜ã‘æ ¹
+    vboMesh.addVertex(glm::vec3(mat * glm::vec4(-w, h * 0.5f, 0, 1)));   // 1: å·¦
+    vboMesh.addVertex(glm::vec3(mat * glm::vec4(w, h * 0.5f, 0, 1)));    // 2: å³
+    vboMesh.addVertex(glm::vec3(mat * glm::vec4(0, h, 0, 1)));           // 3: å…ˆç«¯
 
     for (int i = 0; i < 4; i++) {
         vboMesh.addNormal(glm::normalize(glm::mat3(mat) * glm::vec3(0, 0, 1)));
         vboMesh.addColor(lCol);
     }
 
-    // ƒCƒ“ƒfƒbƒNƒX‚Å2‚Â‚ÌOŠpŒ`‚ğŒ`¬
+    // ã‚¤ãƒ³ãƒ‡ãƒƒã‚¯ã‚¹ã§2ã¤ã®ä¸‰è§’å½¢ã‚’å½¢æˆ
     vboMesh.addIndex(startIndex + 0); vboMesh.addIndex(startIndex + 1); vboMesh.addIndex(startIndex + 3);
     vboMesh.addIndex(startIndex + 0); vboMesh.addIndex(startIndex + 2); vboMesh.addIndex(startIndex + 3);
 }
@@ -270,10 +283,10 @@ void Tree::addFlowerToMesh(float thickness, glm::mat4 mat, FlowerType type) {
     ofColor fCol = s.flowerColor;
 
     if (type == FLOWER_CRYSTAL) {
-        // yType A: Œ‹»z •úËó‚ÉL‚ª‚é‰s‚¢OŠpŒ`
+        // ã€Type A: çµæ™¶ã€‘ æ”¾å°„çŠ¶ã«åºƒãŒã‚‹é‹­ã„ä¸‰è§’å½¢
         float r = thickness * 4.0f;
         int numPoints = 6;
-        vboMesh.addVertex(glm::vec3(mat * glm::vec4(0, 0, 0, 1))); // ’†S
+        vboMesh.addVertex(glm::vec3(mat * glm::vec4(0, 0, 0, 1))); // ä¸­å¿ƒ
         vboMesh.addColor(fCol); vboMesh.addNormal(glm::vec3(0, 1, 0));
 
         for (int i = 0; i < numPoints; i++) {
@@ -287,12 +300,12 @@ void Tree::addFlowerToMesh(float thickness, glm::mat4 mat, FlowerType type) {
         }
     }
     else if (type == FLOWER_PETAL) {
-        // yType B: ‰Ô•Ùz 5–‡‚Ì_‚ç‚©‚¢–Ê
+        // ã€Type B: èŠ±å¼ã€‘ 5æšã®æŸ”ã‚‰ã‹ã„é¢
         float r = thickness * 3.5f;
         for (int i = 0; i < 5; i++) {
             int pStart = vboMesh.getNumVertices();
             float ang = i * TWO_PI / 5;
-            // ŠÈˆÕ“I‚È‰Ô‚Ñ‚ç1–‡(OŠpŒ`)
+            // ç°¡æ˜“çš„ãªèŠ±ã³ã‚‰1æš(ä¸‰è§’å½¢)
             vboMesh.addVertex(glm::vec3(mat * glm::vec4(0, 0, 0, 1)));
             vboMesh.addVertex(glm::vec3(mat * glm::vec4(cos(ang - 0.3) * r, r * 0.5, sin(ang - 0.3) * r, 1)));
             vboMesh.addVertex(glm::vec3(mat * glm::vec4(cos(ang + 0.3) * r, r * 0.5, sin(ang + 0.3) * r, 1)));
@@ -301,25 +314,25 @@ void Tree::addFlowerToMesh(float thickness, glm::mat4 mat, FlowerType type) {
         }
     }
     else if (type == FLOWER_SPIRIT) {
-        // yType C: —ì°z ‚ä‚ç‚ä‚ç—h‚ê‚éë‚Á‚½‰Î‚Ì‹Ê
+        // ã€Type C: éœŠé­‚ã€‘ ã‚†ã‚‰ã‚†ã‚‰æºã‚Œã‚‹å°–ã£ãŸç«ã®ç‰
         float r = thickness * 2.5f;
         float time = ofGetElapsedTimef() * 3.0f;
         float offset = ofSignedNoise(time) * 15.0f;
 
-        vboMesh.addVertex(glm::vec3(mat * glm::vec4(offset, r * 5.0f, 0, 1))); // ë‚Á‚½æ’[
+        vboMesh.addVertex(glm::vec3(mat * glm::vec4(offset, r * 5.0f, 0, 1))); // å°–ã£ãŸå…ˆç«¯
         vboMesh.addVertex(glm::vec3(mat * glm::vec4(-r, 0, -r, 1)));
         vboMesh.addVertex(glm::vec3(mat * glm::vec4(r, 0, -r, 1)));
         vboMesh.addVertex(glm::vec3(mat * glm::vec4(0, 0, r, 1)));
 
         for (int k = 0; k < 4; k++) { vboMesh.addColor(ofColor(150, 200, 255, 180)); vboMesh.addNormal(glm::vec3(0, 1, 0)); }
-        // l–Ê‘Ì‚ÌƒCƒ“ƒfƒbƒNƒX
+        // å››é¢ä½“ã®ã‚¤ãƒ³ãƒ‡ãƒƒã‚¯ã‚¹
         int idxs[] = { 0,1,2, 0,2,3, 0,3,1 };
         for (int id : idxs) vboMesh.addIndex(startIndex + id);
     }
 }
 
 void Tree::addJointToMesh(float radius, glm::mat4 mat, ofColor col, int depth) {
-    // LOD: æ’[‚Ì×‚¢}‚Ù‚Çƒ|ƒŠƒSƒ“‚ğí‚é
+    // LOD: å…ˆç«¯ã®ç´°ã„æã»ã©ãƒãƒªã‚´ãƒ³ã‚’å‰Šã‚‹
     int rings = (depth <= 2) ? 4 : 6;
     int sectors = (depth <= 2) ? 4 : 6;
     int startIndex = vboMesh.getNumVertices();
@@ -350,26 +363,26 @@ void Tree::addJointToMesh(float radius, glm::mat4 mat, ofColor col, int depth) {
 }
 
 void Tree::loadPresetConfig(const ofJson& pt) {
-    // ƒVƒ‡[ƒP[ƒX—p‚Ì[“xİ’è
+    // ã‚·ãƒ§ãƒ¼ã‚±ãƒ¼ã‚¹ç”¨ã®æ·±åº¦è¨­å®š
     s.maxDepth = pt.value("max_depth", 6);
     depthLevel = s.maxDepth;
     depthExp = getExpForDepth(depthLevel);
 
-    // Œ`ó‚ÌƒoƒŠƒG[ƒVƒ‡ƒ“‚ğƒpƒ‰ƒ[ƒ^‚©‚ç•œŒ³
+    // å½¢çŠ¶ã®ãƒãƒªã‚¨ãƒ¼ã‚·ãƒ§ãƒ³ã‚’ãƒ‘ãƒ©ãƒ¡ãƒ¼ã‚¿ã‹ã‚‰å¾©å…ƒ
     if (pt.contains("base_angle")) s.baseAngle = pt["base_angle"];
     if (pt.contains("branch_length_ratio")) s.branchLenRatio = pt["branch_length_ratio"];
     if (pt.contains("branch_thick_ratio")) s.branchThickRatio = pt["branch_thick_ratio"];
     if (pt.contains("trunk_hue_start")) s.trunkHueStart = pt["trunk_hue_start"];
     if (pt.contains("twist_factor")) s.twistFactor = pt["twist_factor"];
 
-    // —t‚ÌF‚Ìã‘‚«
+    // è‘‰ã®è‰²ã®ä¸Šæ›¸ã
     if (pt.contains("leaf_color")) {
         auto c = pt["leaf_color"];
         s.leafColor = ofColor(c[0], c[1], c[2]);
     }
 
-    // --- ƒfƒ‚—pF–Ú•W’l‚ÆŒ»İ’l‚ğ“¯Šú ---
-    // ‚±‚ê‚É‚æ‚èALerp‚ğ‰î‚³‚¸‚Éˆêu‚Åuˆç‚¿Ø‚Á‚½pv‚ª•\¦‚³‚ê‚Ü‚·
+    // --- ãƒ‡ãƒ¢ç”¨ï¼šç›®æ¨™å€¤ã¨ç¾åœ¨å€¤ã‚’åŒæœŸ ---
+    // ã“ã‚Œã«ã‚ˆã‚Šã€Lerpã‚’ä»‹ã•ãšã«ä¸€ç¬ã§ã€Œè‚²ã¡åˆ‡ã£ãŸå§¿ã€ãŒè¡¨ç¤ºã•ã‚Œã¾ã™
     tLen = pt.value("target_len", 150.0f);
     tThick = pt.value("target_thick", 12.0f);
     tMutation = pt.value("target_mutation", 0.0f);
@@ -382,16 +395,15 @@ void Tree::loadPresetConfig(const ofJson& pt) {
 }
 
 void Tree::reset() {
-    // ˆç¬ó‘Ô‚ÌŠ®‘S‰Šú‰»
     dayCount = 1;
-    maxMutationReached = 0;
-    depthExp = 0;
     depthLevel = 0;
+    depthExp = 0;
 
-    // –Ú•W’l‚ÆŒ»İ’l‚ğˆê‹C‚É 0 ‚Å‚Í‚È‚­‰ŠúŒ`ó‚Ö
-    bLen = 0; tLen = 10;
-    bThick = 0; tThick = 2;
+    // ç¾åœ¨å€¤ã¨ç›®æ¨™å€¤ã‚’åˆæœŸå€¤ã¸
+    bLen = 0; tLen = 10.0f;
+    bThick = 0; tThick = 2.0f;
     bMutation = 0; tMutation = 0;
+    maxMutationReached = 0;
 
     totalLenEarned = 0;
     totalThickEarned = 0;
